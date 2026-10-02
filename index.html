@@ -97,6 +97,7 @@ function news(){
   return `<p class="mu" style="margin:0">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
   <h2>Top 3 Nam</h2>${top3Html('nam')}<h2>Top 3 Nữ</h2>${top3Html('nu')}
   <h2>Biến động điểm trong tháng</h2><div class="card">${ch.map(([id,v])=>`<div class="row"><span>${esc(pn(id))}</span><b class="${v>0?'ok':'er'}">${v>0?'▲ +':'▼ '}${Math.round(v)}</b></div>`).join('')||'<span class="mu">Chưa có trận nào được xác nhận trong tháng này.</span>'}</div>
+  <h2>Kết quả hôm nay</h2><div class="card">${conf().filter(m=>new Date(m.confirmed_at).toDateString()===new Date().toDateString()).map(m=>`<div class="row"><span>${mline(m)}</span><span class="mu">±${Math.round(Math.abs(m.delta))}</span></div>`).join('')||'<span class="mu">Hôm nay chưa có trận nào được xác nhận.</span>'}</div>
   <h2>Thách đấu hôm nay</h2><div class="card">${C.filter(c=>['open','accepted'].includes(c.status)&&new Date(c.play_at).toDateString()===new Date().toDateString()).reverse().map(c=>`<div class="row"><span>${cline(c)}</span><span class="mu">${new Date(c.play_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · ${CS[c.status]}</span></div>`).join('')||'<span class="mu">Hôm nay chưa có thách đấu nào.</span>'}</div>`;
 }
 
@@ -108,7 +109,7 @@ const gOf=i=>P.find(p=>p.id===i)?.gender;
 const teamTy=(i,j)=>[gOf(i),gOf(j)].sort().join();
 const inbox=()=>({m:M.filter(m=>m.status==='pending'&&(m.b1===me.id||m.b2===me.id)).length,c:C.filter(c=>c.status==='open'&&(c.b1===me.id||c.b2===me.id)).length});
 function sugg(){
-  const pool=P.filter(p=>p.id!==me.id),k=(a,b)=>a.gender===b.gender?'elo_same':'elo_mix',r=(a,b)=>(a[k(a,b)]+b[k(a,b)])/2,ty=(a,b)=>[a.gender,b.gender].sort().join(),out=[];
+  const pool=P.filter(p=>p.id!==me.id),k=()=>'elo_same',r=(a,b)=>(a[k(a,b)]+b[k(a,b)])/2,ty=(a,b)=>[a.gender,b.gender].sort().join(),out=[];
   for(const p of pool){const A=ty(me,p),ra=r(me,p),rest=pool.filter(x=>x.id!==p.id),tb=Math.abs(me[k(me,p)]-p[k(me,p)])*.01;
     for(let i=0;i<rest.length;i++)for(let j=i+1;j<rest.length;j++){const x=rest[i],y=rest[j];if(ty(x,y)!==A)continue;
       out.push({d:Math.abs(ra-r(x,y)),s:Math.abs(ra-r(x,y))+tb,a:p.id,b:x.id,c:y.id})}}
@@ -146,14 +147,13 @@ function rankTable(title,list,key){
   return `<h2>${title}</h2><div class="card">${list.map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span>${i+1}. ${nm(p,p.id===me.id||(key==='elo_same'&&isTop(p)))}</span><span class="mu">${Math.round(p[key])}</span></div>`).join('')}</div>`;
 }
 function meView(){
-  const same=sorted(me.gender,'elo_same'),mix=sorted(null,'elo_mix'),mm=monthM().filter(m=>inM(m,me.id));
-  const rs=same.findIndex(p=>p.id===me.id)+1,rx=mix.findIndex(p=>p.id===me.id)+1;
+  const same=sorted(me.gender,'elo_same'),mm=monthM().filter(m=>inM(m,me.id)),rs=same.findIndex(p=>p.id===me.id)+1;
+  const w=mm.filter(m=>(m.a1===me.id||m.a2===me.id)===(m.score_a>m.score_b)).length;
   return `<div class="card"><div style="font-size:18px">${nm(me,isTop(me))} ${me.is_admin?'<span class="mu">(admin)</span>':''}</div>
-  <div class="two" style="margin-top:8px"><div><div class="big">#${rs}</div><span class="mu">Đôi ${me.gender==='nam'?'Nam-Nam':'Nữ-Nữ'} · ${Math.round(me.elo_same)} điểm</span></div>
-  <div><div class="big">#${rx}</div><span class="mu">Đôi Nam-Nữ · ${Math.round(me.elo_mix)} điểm</span></div></div></div>
-  <h2>Trận đã đánh tháng này (${mm.length})</h2><div class="card">${mm.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')||'<span class="mu">Chưa có trận nào.</span>'}</div>
-  <h2>Top 3 ${GN[me.gender]}</h2>${top3Html(me.gender)}
-  ${rankTable('Bảng xếp hạng đôi '+(me.gender==='nam'?'Nam-Nam':'Nữ-Nữ'),same,'elo_same')}${rankTable('Bảng xếp hạng đôi Nam-Nữ',mix,'elo_mix')}
+  <div class="two" style="margin-top:8px"><div><div class="big">#${rs}</div><span class="mu">Hạng ${GN[me.gender]} (trên ${same.length})</span></div>
+  <div><div class="big">${Math.round(me.elo_same)}</div><span class="mu">Điểm hiện tại</span></div></div></div>
+  <h2>Trận đã đánh tháng này (${mm.length}${mm.length?' · thắng '+w:''})</h2><div class="card">${mm.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')||'<span class="mu">Chưa có trận nào.</span>'}</div>
+  ${rankTable('Bảng xếp hạng '+GN[me.gender],same,'elo_same')}
   <h2>Giải đấu đã đăng ký</h2><div class="card mu">Sẽ có ở giai đoạn 3.</div>
   <button class="pri" id="out" style="background:#fff;color:var(--p);border:1px solid var(--p)">Đăng xuất</button>`;
 }
@@ -165,13 +165,13 @@ function members(){
 
 const GUIDE=[
 ['Đăng ký & đăng nhập',`<ol><li>Mở trang web, bấm <b>Chưa có tài khoản? Đăng ký</b>.</li><li>Điền họ tên, giới tính, trình độ, email và mật khẩu từ 6 ký tự trở lên.</li><li>Lần sau chỉ cần đăng nhập bằng email và mật khẩu đó.</li></ol><p>Hãy chọn đúng <b>giới tính</b> vì sau này không tự sửa được. Trình độ chỉ dùng để cấp điểm khởi đầu: Mới chơi 900, Trung bình 1000, Khá 1100. Sau đó điểm thay đổi theo kết quả thi đấu thực tế.</p>`],
-['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Top 3 Nam và Top 3 Nữ. Nếu tên bạn nằm trong Top 3 thì tên được in đậm.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Các thách đấu diễn ra trong ngày.</li></ul>`],
+['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Top 3 Nam và Top 3 Nữ. Nếu tên bạn nằm trong Top 3 thì tên được in đậm.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Kết quả các trận đã xác nhận trong ngày, kèm số điểm thay đổi.</li><li>Các thách đấu diễn ra trong ngày.</li></ul>`],
 ['Nhập kết quả trận đấu',`<ol><li>Vào tab <b>Kết quả</b>, kéo xuống mục <b>Nhập kết quả mới</b>.</li><li>Chọn partner của bạn và hai đối thủ.</li><li>Nhập điểm của đội bạn và điểm của đối thủ (không được hòa).</li><li>Bấm <b>Gửi kết quả</b>.</li></ol><p>Hai đội phải cùng loại đôi: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ. Điểm chỉ được tính sau khi đối thủ xác nhận.</p>`],
 ['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận.</p>`],
-['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người có hai điểm riêng: đôi cùng giới (Nam-Nam hoặc Nữ-Nữ) và đôi Nam-Nữ.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
+['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người chỉ có một điểm duy nhất. Mọi trận (Nam-Nam, Nam-Nữ, Nữ-Nữ) đều ảnh hưởng đến điểm này.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
 ['Thách đấu',`<ol><li>Vào tab <b>Thách đấu</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
 ['Gợi ý trận đấu',`<p>Ở tab <b>Thách đấu</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
-['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Top 3 cùng giới và bảng xếp hạng các loại đôi của bạn.</li><li>Nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
+['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Bảng xếp hạng đầy đủ của nhóm cùng giới với bạn, tên bạn được tô nổi.</li><li>Nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
 ['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
 ['Giải đấu',`<p>Tính năng giải đấu (đăng ký giải, chia pot, bốc thăm) sẽ được bổ sung trong thời gian tới.</p>`]
 ];

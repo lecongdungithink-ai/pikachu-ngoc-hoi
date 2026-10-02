@@ -128,7 +128,7 @@ function members(){
 const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView],me:['Của tôi',meView],members:['Thành viên',members]};
 function render(){
   if(!session)return authView();
-  if(!me)return $('#root').innerHTML='<p style="padding:20px">Đang tải hồ sơ…</p>';
+  if(!me){$('#root').innerHTML='<div style="padding:20px"><p>Đang tải hồ sơ…</p><p class="mu">Nếu chờ quá lâu, tài khoản này chưa có hồ sơ. Hãy đăng xuất, xóa tài khoản trong Supabase rồi đăng ký lại.</p><button class="pri" id="out">Đăng xuất</button></div>';$('#out').onclick=()=>sb.auth.signOut();return}
   $('#root').innerHTML=`<header><img src="logo.svg" alt=""><div><h1>Pikachu Ngọc Hồi</h1><small>${TABS[tab][0]}</small></div></header>
   <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[0]}</a>`).join('')}</nav>`;
   const id=s=>document.querySelector(`[data-${s}]`);
@@ -148,5 +148,5 @@ function render(){
 }
 function route(){const t=location.hash.slice(1);tab=TABS[t]?t:'news';render()}
 window.onhashchange=route;
-sb.auth.onAuthStateChange(async(_,s)=>{session=s;me=null;if(s){render();await load()}route()});
+sb.auth.onAuthStateChange((_,s)=>{if(s&&me&&me.id===s.user.id){session=s;return}session=s;me=null;route();if(s)setTimeout(async()=>{await load();route()},0)});
 </script></body></html>

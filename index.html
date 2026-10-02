@@ -37,6 +37,9 @@ nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
 .gh[aria-expanded=true]::after{content:'–'}
 .gb{display:none;background:#fff;border:1px solid var(--ln);border-top:0;border-radius:0 0 12px 12px;padding:6px 14px 10px}
 .gb.open{display:block}.gb ol,.gb ul{margin:6px 0;padding-left:20px}.gb p{margin:6px 0}
+.who{display:flex;align-items:center;gap:8px}
+.av{width:32px;height:32px;border-radius:50%;object-fit:cover;background:#ddd6fe;color:var(--p);display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none}
+.av.lg{width:72px;height:72px;font-size:28px}
 .auth{max-width:380px;margin:30px auto;padding:0 14px}
 :focus-visible{outline:3px solid var(--p2);outline-offset:2px}
 </style></head><body>
@@ -54,6 +57,7 @@ let session,me,P=[],M=[],C=[],tab='news',regMode=false;
 const pn=id=>P.find(p=>p.id===id)?.full_name||'?';
 const sorted=(g,k)=>P.filter(p=>!g||p.gender===g).sort((a,b)=>b[k]-a[k]);
 const top3=g=>sorted(g,'elo_same').slice(0,3);
+const av=(p,lg)=>p.avatar_url?`<img class="av${lg?' lg':''}" src="${esc(p.avatar_url)}" alt="" loading="lazy">`:`<span class="av${lg?' lg':''}">${esc((p.full_name.trim().split(/\s+/).pop()||'?')[0].toUpperCase())}</span>`;
 const nm=(p,bold)=>bold?`<b>${esc(p.full_name)}</b>`:esc(p.full_name);
 const isTop=p=>top3(p.gender).some(x=>x.id===p.id);
 const monthStart=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)};
@@ -90,7 +94,7 @@ function authView(){
     if(regMode&&!r.data.session)alert('Hãy mở email để xác nhận tài khoản, rồi đăng nhập.')};
 }
 
-const top3Html=g=>`<div class="card">${top3(g).map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span>${i+1}. ${nm(p,p.id===me.id)}</span><span class="mu">${Math.round(p.elo_same)}</span></div>`).join('')||'<span class="mu">Chưa có dữ liệu</span>'}</div>`;
+const top3Html=g=>`<div class="card">${top3(g).map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span class="who">${av(p)}${i+1}. ${nm(p,p.id===me.id)}</span><span class="mu">${Math.round(p.elo_same)}</span></div>`).join('')||'<span class="mu">Chưa có dữ liệu</span>'}</div>`;
 
 function news(){
   const d=monthDelta(),ch=Object.entries(d).filter(([,v])=>Math.abs(v)>=.5).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,3);
@@ -144,12 +148,12 @@ function submitView(){
 }
 
 function rankTable(title,list,key){
-  return `<h2>${title}</h2><div class="card">${list.map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span>${i+1}. ${nm(p,p.id===me.id||(key==='elo_same'&&isTop(p)))}</span><span class="mu">${Math.round(p[key])}</span></div>`).join('')}</div>`;
+  return `<h2>${title}</h2><div class="card">${list.map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span class="who">${av(p)}${i+1}. ${nm(p,p.id===me.id||(key==='elo_same'&&isTop(p)))}</span><span class="mu">${Math.round(p[key])}</span></div>`).join('')}</div>`;
 }
 function meView(){
   const same=sorted(me.gender,'elo_same'),mm=monthM().filter(m=>inM(m,me.id)),rs=same.findIndex(p=>p.id===me.id)+1;
   const w=mm.filter(m=>(m.a1===me.id||m.a2===me.id)===(m.score_a>m.score_b)).length;
-  return `<div class="card"><div style="font-size:18px">${nm(me,isTop(me))} ${me.is_admin?'<span class="mu">(admin)</span>':''}</div>
+  return `<div class="card"><div class="who" style="font-size:18px;gap:12px">${av(me,1)}<div>${nm(me,isTop(me))} ${me.is_admin?'<span class="mu">(admin)</span>':''}<br><label class="mu" style="text-decoration:underline;font-weight:600">Đổi ảnh đại diện<input id="avf" type="file" accept="image/*" hidden></label></div></div>
   <div class="two" style="margin-top:8px"><div><div class="big">#${rs}</div><span class="mu">Hạng ${GN[me.gender]} (trên ${same.length})</span></div>
   <div><div class="big">${Math.round(me.elo_same)}</div><span class="mu">Điểm hiện tại</span></div></div></div>
   <h2>Trận đã đánh tháng này (${mm.length}${mm.length?' · thắng '+w:''})</h2><div class="card">${mm.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')||'<span class="mu">Chưa có trận nào.</span>'}</div>
@@ -160,7 +164,7 @@ function meView(){
 function members(){
   const n=P.filter(p=>p.gender==='nam').length,f=P.length-n;
   return `<div class="two"><div class="card"><div class="big">${n}</div>Nam</div><div class="card"><div class="big">${f}</div>Nữ</div></div>
-  <div class="card">${P.map(p=>`<div class="row"><span>${nm(p,p.id===me.id)}</span><span class="mu">${GN[p.gender]}${p.is_admin?' · admin':''}</span></div>`).join('')}</div>`;
+  <div class="card">${P.map(p=>`<div class="row"><span class="who">${av(p)}${nm(p,p.id===me.id)}</span><span class="mu">${GN[p.gender]}${p.is_admin?' · admin':''}</span></div>`).join('')}</div>`;
 }
 
 const GUIDE=[
@@ -172,12 +176,30 @@ const GUIDE=[
 ['Thách đấu',`<ol><li>Vào tab <b>Thách đấu</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
 ['Gợi ý trận đấu',`<p>Ở tab <b>Thách đấu</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
 ['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Bảng xếp hạng đầy đủ của nhóm cùng giới với bạn, tên bạn được tô nổi.</li><li>Nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
+['Ảnh đại diện',`<ol><li>Vào tab <b>Của tôi</b>.</li><li>Bấm <b>Đổi ảnh đại diện</b> và chọn một ảnh từ điện thoại.</li><li>Kéo ảnh để căn mặt vào giữa khung tròn, kéo thanh để phóng to, rồi bấm <b>Lưu ảnh</b>.</li><li>Ảnh hiển thị hình tròn cạnh tên bạn trong các bảng xếp hạng và danh sách thành viên.</li></ol><p>Nếu chưa có ảnh, hệ thống hiện chữ cái đầu tên của bạn.</p>`],
 ['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
 ['Giải đấu',`<p>Tính năng giải đấu (đăng ký giải, chia pot, bốc thăm) sẽ được bổ sung trong thời gian tới.</p>`]
 ];
 function guideView(){
   return `<p class="mu" style="margin:0">Bấm vào từng mục để xem chi tiết.</p>`+GUIDE.map(([t,b])=>`<button class="gh" aria-expanded="false">${t}</button><div class="gb">${b}</div>`).join('');
 }
+
+function cropAvatar(file){return new Promise(async(res,rej)=>{try{
+  const bmp=await createImageBitmap(file),S=280,base=S/Math.min(bmp.width,bmp.height);let z=1,ox=0,oy=0,lx,ly,drag=false;
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:rgba(20,8,40,.9);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px';
+  ov.innerHTML='<p style="color:#fff;margin:0;text-align:center">Kéo ảnh để căn vào giữa, kéo thanh để phóng to</p><canvas width="280" height="280" style="touch-action:none;border-radius:50%;max-width:100%;border:3px solid #fff"></canvas><input type="range" min="1" max="3" step="0.01" value="1" style="width:260px"><div style="display:flex;gap:10px;width:260px"><button class="pri" data-x style="background:#fff;color:var(--p)">Hủy</button><button class="pri" data-s>Lưu ảnh</button></div>';
+  document.body.appendChild(ov);
+  const cv=ov.querySelector('canvas'),ctx=cv.getContext('2d'),rg=ov.querySelector('input');
+  const clamp=()=>{const k=base*z,mx=(bmp.width*k-S)/2,my=(bmp.height*k-S)/2;ox=Math.max(-mx,Math.min(mx,ox));oy=Math.max(-my,Math.min(my,oy))};
+  const draw=(c,f)=>{const k=base*z;c.fillStyle='#fff';c.fillRect(0,0,S*f,S*f);c.drawImage(bmp,(S/2-bmp.width*k/2+ox)*f,(S/2-bmp.height*k/2+oy)*f,bmp.width*k*f,bmp.height*k*f)};
+  draw(ctx,1);
+  cv.onpointerdown=e=>{drag=true;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)};
+  cv.onpointermove=e=>{if(!drag)return;const r=S/cv.getBoundingClientRect().width;ox+=(e.clientX-lx)*r;oy+=(e.clientY-ly)*r;lx=e.clientX;ly=e.clientY;clamp();draw(ctx,1)};
+  cv.onpointerup=cv.onpointercancel=()=>{drag=false};
+  rg.oninput=()=>{z=+rg.value;clamp();draw(ctx,1)};
+  ov.querySelector('[data-x]').onclick=()=>{ov.remove();res(null)};
+  ov.querySelector('[data-s]').onclick=()=>{const o=document.createElement('canvas');o.width=o.height=256;draw(o.getContext('2d'),256/S);ov.remove();o.toBlob(b=>res(b),'image/jpeg',.88)};
+}catch(err){rej(err)}})}
 
 const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView,'Kết quả'],challenge:['Thách đấu',challengeView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
 function render(){
@@ -201,6 +223,11 @@ function render(){
     const{error}=await sb.from('challenges').insert({created_by:me.id,a1:me.id,a2:f.a2,b1:f.b1,b2:f.b2,play_at:new Date(f.t).toISOString()});
     if(error)return alert(error.message);alert('Đã gửi thách đấu.');await load();render()};
   document.querySelectorAll('.gh').forEach(b=>b.onclick=()=>{const was=b.getAttribute('aria-expanded')==='true';document.querySelectorAll('.gh').forEach(x=>{x.setAttribute('aria-expanded','false');x.nextElementSibling.classList.remove('open')});if(!was){b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}});
+  if($('#avf'))$('#avf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+    try{const blob=await cropAvatar(f);e.target.value='';if(!blob)return;const path=me.id+'/avatar.jpg';
+      const up=await sb.storage.from('avatars').upload(path,blob,{upsert:true,contentType:'image/jpeg'});if(up.error)throw up.error;
+      await rpc('set_avatar',{p_url:sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now()})}
+    catch(err){alert('Không tải được ảnh: '+err.message)}};
   if($('#out'))$('#out').onclick=()=>sb.auth.signOut();
   if($('#mf'))$('#mf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),g=i=>P.find(p=>p.id===i)?.gender,ids=[me.id,f.a2,f.b1,f.b2];
     if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');

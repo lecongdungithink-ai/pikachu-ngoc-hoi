@@ -29,8 +29,14 @@ button.sm.g{background:#fff;color:var(--er);border:1px solid var(--er)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .big{font-size:30px;font-weight:800;color:var(--p)}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--ln);display:flex}
-nav a{flex:1;text-align:center;padding:10px 4px;color:var(--mu);text-decoration:none;font-size:12px;font-weight:600}
+nav a{flex:1;text-align:center;padding:10px 2px;color:var(--mu);text-decoration:none;font-size:11px;font-weight:600}
 nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
+.gh{width:100%;text-align:left;background:#fff;border:1px solid var(--ln);border-radius:12px;padding:12px 14px;font:inherit;font-weight:600;color:var(--tx);display:flex;justify-content:space-between;margin-top:8px}
+.gh::after{content:'+';font-weight:800;color:var(--p)}
+.gh[aria-expanded=true]{background:#efe7ff;color:var(--p);border-radius:12px 12px 0 0}
+.gh[aria-expanded=true]::after{content:'–'}
+.gb{display:none;background:#fff;border:1px solid var(--ln);border-top:0;border-radius:0 0 12px 12px;padding:6px 14px 10px}
+.gb.open{display:block}.gb ol,.gb ul{margin:6px 0;padding-left:20px}.gb p{margin:6px 0}
 .auth{max-width:380px;margin:30px auto;padding:0 14px}
 :focus-visible{outline:3px solid var(--p2);outline-offset:2px}
 </style></head><body>
@@ -157,12 +163,28 @@ function members(){
   <div class="card">${P.map(p=>`<div class="row"><span>${nm(p,p.id===me.id)}</span><span class="mu">${GN[p.gender]}${p.is_admin?' · admin':''}</span></div>`).join('')}</div>`;
 }
 
-const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView],challenge:['Thách đấu',challengeView],me:['Của tôi',meView],members:['Thành viên',members]};
+const GUIDE=[
+['Đăng ký & đăng nhập',`<ol><li>Mở trang web, bấm <b>Chưa có tài khoản? Đăng ký</b>.</li><li>Điền họ tên, giới tính, trình độ, email và mật khẩu từ 6 ký tự trở lên.</li><li>Lần sau chỉ cần đăng nhập bằng email và mật khẩu đó.</li></ol><p>Hãy chọn đúng <b>giới tính</b> vì sau này không tự sửa được. Trình độ chỉ dùng để cấp điểm khởi đầu: Mới chơi 900, Trung bình 1000, Khá 1100. Sau đó điểm thay đổi theo kết quả thi đấu thực tế.</p>`],
+['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Top 3 Nam và Top 3 Nữ. Nếu tên bạn nằm trong Top 3 thì tên được in đậm.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Các thách đấu diễn ra trong ngày.</li></ul>`],
+['Nhập kết quả trận đấu',`<ol><li>Vào tab <b>Kết quả</b>, kéo xuống mục <b>Nhập kết quả mới</b>.</li><li>Chọn partner của bạn và hai đối thủ.</li><li>Nhập điểm của đội bạn và điểm của đối thủ (không được hòa).</li><li>Bấm <b>Gửi kết quả</b>.</li></ol><p>Hai đội phải cùng loại đôi: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ. Điểm chỉ được tính sau khi đối thủ xác nhận.</p>`],
+['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận.</p>`],
+['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người có hai điểm riêng: đôi cùng giới (Nam-Nam hoặc Nữ-Nữ) và đôi Nam-Nữ.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
+['Thách đấu',`<ol><li>Vào tab <b>Thách đấu</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
+['Gợi ý trận đấu',`<p>Ở tab <b>Thách đấu</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
+['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Top 3 cùng giới và bảng xếp hạng các loại đôi của bạn.</li><li>Nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
+['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
+['Giải đấu',`<p>Tính năng giải đấu (đăng ký giải, chia pot, bốc thăm) sẽ được bổ sung trong thời gian tới.</p>`]
+];
+function guideView(){
+  return `<p class="mu" style="margin:0">Bấm vào từng mục để xem chi tiết.</p>`+GUIDE.map(([t,b])=>`<button class="gh" aria-expanded="false">${t}</button><div class="gb">${b}</div>`).join('');
+}
+
+const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView,'Kết quả'],challenge:['Thách đấu',challengeView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
 function render(){
   if(!session)return authView();
   if(!me){$('#root').innerHTML='<div style="padding:20px"><p>Đang tải hồ sơ…</p><p class="mu">Nếu chờ quá lâu, tài khoản này chưa có hồ sơ. Hãy đăng xuất, xóa tài khoản trong Supabase rồi đăng ký lại.</p><button class="pri" id="out">Đăng xuất</button></div>';$('#out').onclick=()=>sb.auth.signOut();return}
   $('#root').innerHTML=`<header><img src="logo.svg" alt=""><div><h1>Pikachu Ngọc Hồi</h1><small>${TABS[tab][0]}</small></div></header>
-  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[0]}${(k==='submit'&&inbox().m)||(k==='challenge'&&inbox().c)?` <span style="background:var(--er);color:#fff;border-radius:9px;padding:0 6px">${k==='submit'?inbox().m:inbox().c}</span>`:''}</a>`).join('')}</nav>`;
+  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[2]||v[0]}${(k==='submit'&&inbox().m)||(k==='challenge'&&inbox().c)?` <span style="background:var(--er);color:#fff;border-radius:9px;padding:0 6px">${k==='submit'?inbox().m:inbox().c}</span>`:''}</a>`).join('')}</nav>`;
   const id=s=>document.querySelector(`[data-${s}]`);
   document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>rpc('confirm_match',{p_id:b.dataset.ok}));
   document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>rpc('reject_match',{p_id:b.dataset.no}));
@@ -178,6 +200,7 @@ function render(){
     if(new Date(f.t)<new Date())return alert('Hãy chọn thời gian trong tương lai.');
     const{error}=await sb.from('challenges').insert({created_by:me.id,a1:me.id,a2:f.a2,b1:f.b1,b2:f.b2,play_at:new Date(f.t).toISOString()});
     if(error)return alert(error.message);alert('Đã gửi thách đấu.');await load();render()};
+  document.querySelectorAll('.gh').forEach(b=>b.onclick=()=>{const was=b.getAttribute('aria-expanded')==='true';document.querySelectorAll('.gh').forEach(x=>{x.setAttribute('aria-expanded','false');x.nextElementSibling.classList.remove('open')});if(!was){b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}});
   if($('#out'))$('#out').onclick=()=>sb.auth.signOut();
   if($('#mf'))$('#mf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),g=i=>P.find(p=>p.id===i)?.gender,ids=[me.id,f.a2,f.b1,f.b2];
     if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');

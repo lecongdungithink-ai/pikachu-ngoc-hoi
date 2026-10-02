@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pikachu Ngọc Hồi</title>
+<link rel="icon" href="logo.svg">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--p:#5b21b6;--p2:#7c3aed;--bg:#f6f2ff;--card:#fff;--tx:#1e1033;--mu:#6b5b8a;--ln:#e4d9fb;--ok:#15803d;--er:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 'Be Vietnam Pro',system-ui,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:76px}
+header{background:linear-gradient(135deg,#3b0f8c,var(--p2));color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px}
+header img{width:48px;height:48px;border-radius:12px;background:#fff}
+header h1{font-size:18px;margin:0;font-weight:800}header small{opacity:.85}
+header button{margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;padding:6px 10px;font:inherit}
+main{max-width:720px;margin:0 auto;padding:14px}
+h2{font-size:17px;margin:20px 0 8px;color:var(--p)}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--ln)}
+.row:last-child{border:0}
+.mu{color:var(--mu);font-size:13px}.ok{color:var(--ok)}.er{color:var(--er)}
+.me{background:#efe7ff;border-radius:8px;padding:6px 8px;margin:0 -8px}
+input,select{width:100%;padding:10px;border:1px solid var(--ln);border-radius:10px;font:inherit;background:#fff;margin:4px 0 10px}
+label{font-weight:600;font-size:13px;color:var(--mu)}
+button.pri{background:var(--p);color:#fff;border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;width:100%}
+button.sm{background:var(--p2);color:#fff;border:0;border-radius:8px;padding:5px 10px;font:inherit;font-size:13px}
+button.sm.g{background:#fff;color:var(--er);border:1px solid var(--er)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.big{font-size:30px;font-weight:800;color:var(--p)}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--ln);display:flex}
+nav a{flex:1;text-align:center;padding:10px 4px;color:var(--mu);text-decoration:none;font-size:12px;font-weight:600}
+nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
+.auth{max-width:380px;margin:30px auto;padding:0 14px}
+:focus-visible{outline:3px solid var(--p2);outline-offset:2px}
+</style></head><body>
+<div id="root"></div>
+<script>
+// ====== ĐIỀN THÔNG TIN SUPABASE CỦA BẠN (Project Settings > API) ======
+const SB_URL='https://jbhjxavgefzjyrkectmy.supabase.co', SB_KEY='sb_publishable_nQT0aSZhg6GtV0exxKGuzA_qMghRrdl';
+// ======================================================================
+const sb=supabase.createClient(SB_URL,SB_KEY);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const GN={nam:'Nam',nu:'Nữ'},TY={mm:'Nam-Nam',mf:'Nam-Nữ',ff:'Nữ-Nữ'};
+let session,me,P=[],M=[],tab='news',regMode=false;
+
+const pn=id=>P.find(p=>p.id===id)?.full_name||'?';
+const sorted=(g,k)=>P.filter(p=>!g||p.gender===g).sort((a,b)=>b[k]-a[k]);
+const top3=g=>sorted(g,'elo_same').slice(0,3);
+const nm=(p,bold)=>bold?`<b>${esc(p.full_name)}</b>`:esc(p.full_name);
+const isTop=p=>top3(p.gender).some(x=>x.id===p.id);
+const monthStart=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)};
+const conf=()=>M.filter(m=>m.status==='confirmed');
+const monthM=()=>conf().filter(m=>new Date(m.confirmed_at)>=monthStart());
+const inM=(m,id)=>[m.a1,m.a2,m.b1,m.b2].includes(id);
+function monthDelta(){const d={};monthM().forEach(m=>{[m.a1,m.a2].forEach(i=>d[i]=(d[i]||0)+m.delta);[m.b1,m.b2].forEach(i=>d[i]=(d[i]||0)-m.delta)});return d}
+const mline=m=>`${esc(pn(m.a1))} & ${esc(pn(m.a2))} <b>${m.score_a}-${m.score_b}</b> ${esc(pn(m.b1))} & ${esc(pn(m.b2))}`;
+
+async function load(){
+  P=(await sb.from('profiles').select('*')).data||[];
+  M=(await sb.from('matches').select('*').order('created_at',{ascending:false}).limit(300)).data||[];
+  me=P.find(p=>p.id===session.user.id);
+}
+async function rpc(fn,args){const{error}=await sb.rpc(fn,args);if(error)alert(error.message);await load();render()}
+
+function authView(){
+  $('#root').innerHTML=`<div class="auth"><div style="text-align:center"><img src="logo.svg" width="96" style="border-radius:20px;border:1px solid var(--ln)"><h1 style="color:var(--p);margin:8px 0 0">Pikachu Ngọc Hồi</h1><p class="mu">Câu lạc bộ Pickleball</p></div>
+  <div class="card"><form id="af">
+  ${regMode?`<label>Họ tên</label><input name="n" required>
+  <div class="two"><div><label>Giới tính</label><select name="g"><option value="nam">Nam</option><option value="nu">Nữ</option></select></div>
+  <div><label>Trình độ</label><select name="l"><option value="moi">Mới chơi</option><option value="tb" selected>Trung bình</option><option value="kha">Khá</option></select></div></div>`:''}
+  <label>Email</label><input name="e" type="email" required>
+  <label>Mật khẩu (từ 6 ký tự)</label><input name="p" type="password" minlength="6" required>
+  <button class="pri">${regMode?'Đăng ký':'Đăng nhập'}</button></form>
+  <p class="mu" style="text-align:center;margin:12px 0 0"><a href="#" id="sw">${regMode?'Đã có tài khoản? Đăng nhập':'Chưa có tài khoản? Đăng ký'}</a></p></div></div>`;
+  $('#sw').onclick=e=>{e.preventDefault();regMode=!regMode;authView()};
+  $('#af').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
+    const r=regMode?await sb.auth.signUp({email:f.e,password:f.p,options:{data:{full_name:f.n.trim(),gender:f.g,level:f.l}}}):await sb.auth.signInWithPassword({email:f.e,password:f.p});
+    if(r.error)return alert(r.error.message);
+    if(regMode&&!r.data.session)alert('Hãy mở email để xác nhận tài khoản, rồi đăng nhập.')};
+}
+
+const top3Html=g=>`<div class="card">${top3(g).map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span>${i+1}. ${nm(p,p.id===me.id)}</span><span class="mu">${Math.round(p.elo_same)}</span></div>`).join('')||'<span class="mu">Chưa có dữ liệu</span>'}</div>`;
+
+function news(){
+  const d=monthDelta(),ch=Object.entries(d).filter(([,v])=>Math.abs(v)>=.5).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,3);
+  return `<p class="mu" style="margin:0">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
+  <h2>Top 3 Nam</h2>${top3Html('nam')}<h2>Top 3 Nữ</h2>${top3Html('nu')}
+  <h2>Biến động điểm trong tháng</h2><div class="card">${ch.map(([id,v])=>`<div class="row"><span>${esc(pn(id))}</span><b class="${v>0?'ok':'er'}">${v>0?'▲ +':'▼ '}${Math.round(v)}</b></div>`).join('')||'<span class="mu">Chưa có trận nào được xác nhận trong tháng này.</span>'}</div>
+  <h2>Thách đấu hôm nay</h2><div class="card mu">Tính năng thách đấu sẽ có ở giai đoạn 2.</div>`;
+}
+
+function submitView(){
+  const others=P.filter(p=>p.id!==me.id),opt=`<option value="">— chọn —</option>`+others.map(p=>`<option value="${p.id}">${esc(p.full_name)} (${GN[p.gender]})</option>`).join('');
+  const wait=M.filter(m=>m.status==='pending');
+  const mine=wait.filter(m=>m.b1===me.id||m.b2===me.id),sent=wait.filter(m=>m.created_by===me.id);
+  const adm=me.is_admin?`<h2>Quản trị: tất cả trận</h2><div class="card">${M.slice(0,40).map(m=>`<div class="row"><span>${mline(m)}<br><span class="mu">${TY[m.type]} · ${m.status}</span></span>${m.status==='cancelled'||m.status==='rejected'?'':`<span><button class="sm" data-set="${m.id}">Sửa</button> <button class="sm g" data-cx="${m.id}">Hủy</button></span>`}</div>`).join('')||'<span class="mu">Chưa có trận</span>'}</div>`:'';
+  return `<h2>Chờ bạn xác nhận</h2><div class="card">${mine.map(m=>`<div class="row"><span>${mline(m)}<br><span class="mu">${TY[m.type]}</span></span><span><button class="sm" data-ok="${m.id}">Xác nhận</button> <button class="sm g" data-no="${m.id}">Từ chối</button></span></div>`).join('')||'<span class="mu">Không có trận nào cần xác nhận.</span>'}</div>
+  ${sent.length?`<h2>Bạn đã nhập, đang chờ đối thủ</h2><div class="card">${sent.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')}</div>`:''}
+  <h2>Nhập kết quả mới</h2><form class="card" id="mf"><label>Đội của bạn: bạn và</label><select name="a2" required>${opt}</select>
+  <label>Đội đối thủ</label><select name="b1" required>${opt}</select><select name="b2" required>${opt}</select>
+  <div class="two"><div><label>Điểm đội bạn</label><input name="sa" type="number" min="0" required></div><div><label>Điểm đối thủ</label><input name="sb" type="number" min="0" required></div></div>
+  <button class="pri">Gửi kết quả</button></form>${adm}`;
+}
+
+function rankTable(title,list,key){
+  return `<h2>${title}</h2><div class="card">${list.map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span>${i+1}. ${nm(p,p.id===me.id||(key==='elo_same'&&isTop(p)))}</span><span class="mu">${Math.round(p[key])}</span></div>`).join('')}</div>`;
+}
+function meView(){
+  const same=sorted(me.gender,'elo_same'),mix=sorted(null,'elo_mix'),mm=monthM().filter(m=>inM(m,me.id));
+  const rs=same.findIndex(p=>p.id===me.id)+1,rx=mix.findIndex(p=>p.id===me.id)+1;
+  return `<div class="card"><div style="font-size:18px">${nm(me,isTop(me))} ${me.is_admin?'<span class="mu">(admin)</span>':''}</div>
+  <div class="two" style="margin-top:8px"><div><div class="big">#${rs}</div><span class="mu">Đôi ${me.gender==='nam'?'Nam-Nam':'Nữ-Nữ'} · ${Math.round(me.elo_same)} điểm</span></div>
+  <div><div class="big">#${rx}</div><span class="mu">Đôi Nam-Nữ · ${Math.round(me.elo_mix)} điểm</span></div></div></div>
+  <h2>Trận đã đánh tháng này (${mm.length})</h2><div class="card">${mm.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')||'<span class="mu">Chưa có trận nào.</span>'}</div>
+  <h2>Top 3 ${GN[me.gender]}</h2>${top3Html(me.gender)}
+  ${rankTable('Bảng xếp hạng đôi '+(me.gender==='nam'?'Nam-Nam':'Nữ-Nữ'),same,'elo_same')}${rankTable('Bảng xếp hạng đôi Nam-Nữ',mix,'elo_mix')}
+  <h2>Giải đấu đã đăng ký</h2><div class="card mu">Sẽ có ở giai đoạn 3.</div>
+  <button class="pri" id="out" style="background:#fff;color:var(--p);border:1px solid var(--p)">Đăng xuất</button>`;
+}
+function members(){
+  const n=P.filter(p=>p.gender==='nam').length,f=P.length-n;
+  return `<div class="two"><div class="card"><div class="big">${n}</div>Nam</div><div class="card"><div class="big">${f}</div>Nữ</div></div>
+  <div class="card">${P.map(p=>`<div class="row"><span>${nm(p,p.id===me.id)}</span><span class="mu">${GN[p.gender]}${p.is_admin?' · admin':''}</span></div>`).join('')}</div>`;
+}
+
+const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView],me:['Của tôi',meView],members:['Thành viên',members]};
+function render(){
+  if(!session)return authView();
+  if(!me)return $('#root').innerHTML='<p style="padding:20px">Đang tải hồ sơ…</p>';
+  $('#root').innerHTML=`<header><img src="logo.svg" alt=""><div><h1>Pikachu Ngọc Hồi</h1><small>${TABS[tab][0]}</small></div></header>
+  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[0]}</a>`).join('')}</nav>`;
+  const id=s=>document.querySelector(`[data-${s}]`);
+  document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>rpc('confirm_match',{p_id:b.dataset.ok}));
+  document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>rpc('reject_match',{p_id:b.dataset.no}));
+  document.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>confirm('Hủy kết quả trận này?')&&rpc('admin_cancel_match',{p_id:b.dataset.cx}));
+  document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const v=prompt('Tỷ số mới (đội A-đội B), ví dụ 11-8');const r=v&&v.match(/^(\d+)\D+(\d+)$/);r?rpc('admin_set_result',{p_id:b.dataset.set,p_sa:+r[1],p_sb:+r[2]}):0});
+  if($('#out'))$('#out').onclick=()=>sb.auth.signOut();
+  if($('#mf'))$('#mf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),g=i=>P.find(p=>p.id===i)?.gender,ids=[me.id,f.a2,f.b1,f.b2];
+    if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');
+    const A=[g(me.id),g(f.a2)].sort().join(),B=[g(f.b1),g(f.b2)].sort().join();
+    if(A!==B)return alert('Hai đội phải cùng loại đôi (Nam-Nam, Nam-Nữ hoặc Nữ-Nữ).');
+    if(+f.sa===+f.sb)return alert('Tỷ số không được hòa.');
+    const type=A==='nam,nam'?'mm':A==='nu,nu'?'ff':'mf';
+    const{error}=await sb.from('matches').insert({type,a1:me.id,a2:f.a2,b1:f.b1,b2:f.b2,score_a:+f.sa,score_b:+f.sb,created_by:me.id});
+    if(error)return alert(error.message);alert('Đã gửi. Một trong hai đối thủ cần xác nhận.');await load();render()};
+}
+function route(){const t=location.hash.slice(1);tab=TABS[t]?t:'news';render()}
+window.onhashchange=route;
+sb.auth.onAuthStateChange(async(_,s)=>{session=s;me=null;if(s){render();await load()}route()});
+</script></body></html>

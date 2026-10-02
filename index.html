@@ -43,7 +43,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GN={nam:'Nam',nu:'Nữ'},TY={mm:'Nam-Nam',mf:'Nam-Nữ',ff:'Nữ-Nữ'};
-let session,me,P=[],M=[],tab='news',regMode=false;
+let session,me,P=[],M=[],C=[],tab='news',regMode=false;
 
 const pn=id=>P.find(p=>p.id===id)?.full_name||'?';
 const sorted=(g,k)=>P.filter(p=>!g||p.gender===g).sort((a,b)=>b[k]-a[k]);
@@ -60,6 +60,7 @@ const mline=m=>`${esc(pn(m.a1))} & ${esc(pn(m.a2))} <b>${m.score_a}-${m.score_b}
 async function load(){
   P=(await sb.from('profiles').select('*')).data||[];
   M=(await sb.from('matches').select('*').order('created_at',{ascending:false}).limit(300)).data||[];
+  C=(await sb.from('challenges').select('*').order('play_at',{ascending:false}).limit(200)).data||[];
   me=P.find(p=>p.id===session.user.id);
 }
 async function rpc(fn,args){const{error}=await sb.rpc(fn,args);if(error)alert(error.message);await load();render()}
@@ -73,7 +74,9 @@ function authView(){
   <label>Email</label><input name="e" type="email" required>
   <label>Mật khẩu (từ 6 ký tự)</label><input name="p" type="password" minlength="6" required>
   <button class="pri">${regMode?'Đăng ký':'Đăng nhập'}</button></form>
-  <p class="mu" style="text-align:center;margin:12px 0 0"><a href="#" id="sw">${regMode?'Đã có tài khoản? Đăng nhập':'Chưa có tài khoản? Đăng ký'}</a></p></div></div>`;
+  ${regMode?'':'<p class="mu" style="text-align:center;margin:12px 0 0"><a href="#" id="fp">Quên mật khẩu?</a></p>'}<p class="mu" style="text-align:center;margin:12px 0 0"><a href="#" id="sw">${regMode?'Đã có tài khoản? Đăng nhập':'Chưa có tài khoản? Đăng ký'}</a></p></div></div>`;
+  if($('#fp'))$('#fp').onclick=async e=>{e.preventDefault();const m=$('#af').e.value.trim();if(!m)return alert('Nhập email vào ô Email trước.');
+    const{error}=await sb.auth.resetPasswordForEmail(m,{redirectTo:location.origin+location.pathname});alert(error?error.message:'Đã gửi email đặt lại mật khẩu. Hãy kiểm tra hộp thư.')};
   $('#sw').onclick=e=>{e.preventDefault();regMode=!regMode;authView()};
   $('#af').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
     const r=regMode?await sb.auth.signUp({email:f.e,password:f.p,options:{data:{full_name:f.n.trim(),gender:f.g,level:f.l}}}):await sb.auth.signInWithPassword({email:f.e,password:f.p});
@@ -88,7 +91,36 @@ function news(){
   return `<p class="mu" style="margin:0">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
   <h2>Top 3 Nam</h2>${top3Html('nam')}<h2>Top 3 Nữ</h2>${top3Html('nu')}
   <h2>Biến động điểm trong tháng</h2><div class="card">${ch.map(([id,v])=>`<div class="row"><span>${esc(pn(id))}</span><b class="${v>0?'ok':'er'}">${v>0?'▲ +':'▼ '}${Math.round(v)}</b></div>`).join('')||'<span class="mu">Chưa có trận nào được xác nhận trong tháng này.</span>'}</div>
-  <h2>Thách đấu hôm nay</h2><div class="card mu">Tính năng thách đấu sẽ có ở giai đoạn 2.</div>`;
+  <h2>Thách đấu hôm nay</h2><div class="card">${C.filter(c=>['open','accepted'].includes(c.status)&&new Date(c.play_at).toDateString()===new Date().toDateString()).reverse().map(c=>`<div class="row"><span>${cline(c)}</span><span class="mu">${new Date(c.play_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · ${CS[c.status]}</span></div>`).join('')||'<span class="mu">Hôm nay chưa có thách đấu nào.</span>'}</div>`;
+}
+
+
+const CS={open:'Chờ nhận lời',accepted:'Đã nhận lời',declined:'Đã từ chối',cancelled:'Đã hủy'};
+const ctime=c=>new Date(c.play_at).toLocaleString('vi-VN',{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
+const cline=c=>`${[c.a1,c.a2].map(i=>i===me.id?`<b>${esc(pn(i))}</b>`:esc(pn(i))).join(' & ')} <span class="mu">thách</span> ${[c.b1,c.b2].map(i=>i===me.id?`<b>${esc(pn(i))}</b>`:esc(pn(i))).join(' & ')}`;
+const gOf=i=>P.find(p=>p.id===i)?.gender;
+const teamTy=(i,j)=>[gOf(i),gOf(j)].sort().join();
+const inbox=()=>({m:M.filter(m=>m.status==='pending'&&(m.b1===me.id||m.b2===me.id)).length,c:C.filter(c=>c.status==='open'&&(c.b1===me.id||c.b2===me.id)).length});
+function sugg(){
+  const pool=P.filter(p=>p.id!==me.id),k=(a,b)=>a.gender===b.gender?'elo_same':'elo_mix',r=(a,b)=>(a[k(a,b)]+b[k(a,b)])/2,ty=(a,b)=>[a.gender,b.gender].sort().join(),out=[];
+  for(const p of pool){const A=ty(me,p),ra=r(me,p),rest=pool.filter(x=>x.id!==p.id),tb=Math.abs(me[k(me,p)]-p[k(me,p)])*.01;
+    for(let i=0;i<rest.length;i++)for(let j=i+1;j<rest.length;j++){const x=rest[i],y=rest[j];if(ty(x,y)!==A)continue;
+      out.push({d:Math.abs(ra-r(x,y)),s:Math.abs(ra-r(x,y))+tb,a:p.id,b:x.id,c:y.id})}}
+  out.sort((u,v)=>u.s-v.s);const seen=new Set(),res=[];
+  for(const o of out){const key=[o.b,o.c].sort().join();if(seen.has(key))continue;seen.add(key);res.push(o);if(res.length===3)break}
+  return res;
+}
+function challengeView(){
+  const others=P.filter(p=>p.id!==me.id),opt=`<option value="">— chọn —</option>`+others.map(p=>`<option value="${p.id}">${esc(p.full_name)} (${GN[p.gender]})</option>`).join('');
+  const inc=C.filter(c=>c.status==='open'&&(c.b1===me.id||c.b2===me.id));
+  const mine=C.filter(c=>[c.a1,c.a2,c.b1,c.b2].includes(me.id)).slice(0,15);
+  const sg=sugg();
+  return `<h2>Lời thách đấu gửi đến bạn</h2><div class="card">${inc.map(c=>`<div class="row"><span>${cline(c)}<br><span class="mu">${ctime(c)}</span></span><span><button class="sm" data-acc="${c.id}">Nhận lời</button> <button class="sm g" data-dec="${c.id}">Từ chối</button></span></div>`).join('')||'<span class="mu">Chưa có lời thách đấu nào.</span>'}</div>
+  <h2>Gợi ý trận cân tài cân sức</h2><div class="card">${sg.map(o=>`<div class="row"><span><b>Bạn</b> & ${esc(pn(o.a))} <span class="mu">vs</span> ${esc(pn(o.b))} & ${esc(pn(o.c))}<br><span class="mu">Chênh khoảng ${Math.round(o.d)} điểm</span></span><button class="sm" data-sug="${o.a},${o.b},${o.c}">Thách đấu</button></div>`).join('')||'<span class="mu">Cần thêm thành viên để gợi ý trận.</span>'}</div>
+  <h2>Tạo thách đấu</h2><form class="card" id="cf" onsubmit="return false"><label>Đội của bạn: bạn và</label><select name="a2" required>${opt}</select>
+  <label>Đội bị thách đấu</label><select name="b1" required>${opt}</select><select name="b2" required>${opt}</select>
+  <label>Thời gian</label><input name="t" type="datetime-local" required><button class="pri">Gửi thách đấu</button></form>
+  <h2>Thách đấu của bạn</h2><div class="card">${mine.map(c=>`<div class="row"><span>${cline(c)}<br><span class="mu">${ctime(c)} · ${CS[c.status]}</span></span>${c.created_by===me.id&&['open','accepted'].includes(c.status)?`<button class="sm g" data-cxc="${c.id}">Hủy</button>`:''}</div>`).join('')||'<span class="mu">Chưa có thách đấu.</span>'}</div>`;
 }
 
 function submitView(){
@@ -125,17 +157,27 @@ function members(){
   <div class="card">${P.map(p=>`<div class="row"><span>${nm(p,p.id===me.id)}</span><span class="mu">${GN[p.gender]}${p.is_admin?' · admin':''}</span></div>`).join('')}</div>`;
 }
 
-const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView],me:['Của tôi',meView],members:['Thành viên',members]};
+const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView],challenge:['Thách đấu',challengeView],me:['Của tôi',meView],members:['Thành viên',members]};
 function render(){
   if(!session)return authView();
   if(!me){$('#root').innerHTML='<div style="padding:20px"><p>Đang tải hồ sơ…</p><p class="mu">Nếu chờ quá lâu, tài khoản này chưa có hồ sơ. Hãy đăng xuất, xóa tài khoản trong Supabase rồi đăng ký lại.</p><button class="pri" id="out">Đăng xuất</button></div>';$('#out').onclick=()=>sb.auth.signOut();return}
   $('#root').innerHTML=`<header><img src="logo.svg" alt=""><div><h1>Pikachu Ngọc Hồi</h1><small>${TABS[tab][0]}</small></div></header>
-  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[0]}</a>`).join('')}</nav>`;
+  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[0]}${(k==='submit'&&inbox().m)||(k==='challenge'&&inbox().c)?` <span style="background:var(--er);color:#fff;border-radius:9px;padding:0 6px">${k==='submit'?inbox().m:inbox().c}</span>`:''}</a>`).join('')}</nav>`;
   const id=s=>document.querySelector(`[data-${s}]`);
   document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>rpc('confirm_match',{p_id:b.dataset.ok}));
   document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>rpc('reject_match',{p_id:b.dataset.no}));
   document.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>confirm('Hủy kết quả trận này?')&&rpc('admin_cancel_match',{p_id:b.dataset.cx}));
   document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const v=prompt('Tỷ số mới (đội A-đội B), ví dụ 11-8');const r=v&&v.match(/^(\d+)\D+(\d+)$/);r?rpc('admin_set_result',{p_id:b.dataset.set,p_sa:+r[1],p_sb:+r[2]}):0});
+  document.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>rpc('respond_challenge',{p_id:b.dataset.acc,p_accept:true}));
+  document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>rpc('respond_challenge',{p_id:b.dataset.dec,p_accept:false}));
+  document.querySelectorAll('[data-cxc]').forEach(b=>b.onclick=()=>confirm('Hủy thách đấu này?')&&rpc('cancel_challenge',{p_id:b.dataset.cxc}));
+  document.querySelectorAll('[data-sug]').forEach(b=>b.onclick=()=>{const[a,x,y]=b.dataset.sug.split(',');const f=$('#cf');f.a2.value=a;f.b1.value=x;f.b2.value=y;f.scrollIntoView({behavior:'smooth'})});
+  if($('#cf'))$('#cf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),ids=[me.id,f.a2,f.b1,f.b2];
+    if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');
+    if(teamTy(me.id,f.a2)!==teamTy(f.b1,f.b2))return alert('Hai đội phải cùng loại đôi (Nam-Nam, Nam-Nữ hoặc Nữ-Nữ).');
+    if(new Date(f.t)<new Date())return alert('Hãy chọn thời gian trong tương lai.');
+    const{error}=await sb.from('challenges').insert({created_by:me.id,a1:me.id,a2:f.a2,b1:f.b1,b2:f.b2,play_at:new Date(f.t).toISOString()});
+    if(error)return alert(error.message);alert('Đã gửi thách đấu.');await load();render()};
   if($('#out'))$('#out').onclick=()=>sb.auth.signOut();
   if($('#mf'))$('#mf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),g=i=>P.find(p=>p.id===i)?.gender,ids=[me.id,f.a2,f.b1,f.b2];
     if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');
@@ -148,5 +190,5 @@ function render(){
 }
 function route(){const t=location.hash.slice(1);tab=TABS[t]?t:'news';render()}
 window.onhashchange=route;
-sb.auth.onAuthStateChange((_,s)=>{if(s&&me&&me.id===s.user.id){session=s;return}session=s;me=null;route();if(s)setTimeout(async()=>{await load();route()},0)});
+sb.auth.onAuthStateChange((ev,s)=>{if(ev==='PASSWORD_RECOVERY')setTimeout(async()=>{const p=prompt('Nhập mật khẩu mới (từ 6 ký tự):');if(p&&p.length>=6){const{error}=await sb.auth.updateUser({password:p});alert(error?error.message:'Đã đổi mật khẩu.')}else if(p)alert('Mật khẩu cần từ 6 ký tự.')},300);if(s&&me&&me.id===s.user.id){session=s;return}session=s;me=null;route();if(s)setTimeout(async()=>{await load();route()},0)});
 </script></body></html>

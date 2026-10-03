@@ -37,6 +37,10 @@ nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
 .gh[aria-expanded=true]::after{content:'–'}
 .gb{display:none;background:#fff;border:1px solid var(--ln);border-top:0;border-radius:0 0 12px 12px;padding:6px 14px 10px}
 .gb.open{display:block}.gb ol,.gb ul{margin:6px 0;padding-left:20px}.gb p{margin:6px 0}
+.pot{display:inline-block;min-width:26px;text-align:center;border-radius:8px;padding:1px 6px;font-weight:800;font-size:13px;color:#fff;vertical-align:middle}
+.potA{background:#4c1d95}.potB{background:#7c3aed}.potC{background:#a78bfa}.potD{background:#ddd6fe;color:#3b0f8c}
+.mem{display:grid;grid-template-columns:1fr 38px 32px 46px;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--ln)}
+.mem:last-child{border:0}.mem>:nth-child(n+2){text-align:center}
 .who{display:flex;align-items:center;gap:8px}
 .av{width:32px;height:32px;border-radius:50%;object-fit:cover;background:#ddd6fe;color:var(--p);display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none}
 .av.lg{width:72px;height:72px;font-size:28px}
@@ -58,6 +62,11 @@ const pn=id=>P.find(p=>p.id===id)?.full_name||'?';
 const sorted=(g,k)=>P.filter(p=>!g||p.gender===g).sort((a,b)=>b[k]-a[k]);
 const top3=g=>sorted(g,'elo_same').slice(0,3);
 const av=(p,lg)=>p.avatar_url?`<img class="av${lg?' lg':''}" src="${esc(p.avatar_url)}" alt="" loading="lazy">`:`<span class="av${lg?' lg':''}">${esc((p.full_name.trim().split(/\s+/).pop()||'?')[0].toUpperCase())}</span>`;
+// Pot theo điểm, mỗi pot cách nhau 150 điểm. Muốn đổi ngưỡng thì sửa số ở đây.
+const POTS=[['A',1225],['B',1075],['C',925],['D',-1e9]];
+const potIdx=p=>POTS.findIndex(x=>Math.round(p.elo_same)>=x[1]);
+const potOf=p=>POTS[potIdx(p)][0];
+const pot=p=>`<span class="pot pot${potOf(p)}">${potOf(p)}</span>`;
 const nm=(p,bold)=>bold?`<b>${esc(p.full_name)}</b>`:esc(p.full_name);
 const isTop=p=>top3(p.gender).some(x=>x.id===p.id);
 const monthStart=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1)};
@@ -96,13 +105,22 @@ function authView(){
 
 const top3Html=g=>`<div class="card">${top3(g).map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span class="who">${av(p)}${i+1}. ${nm(p,p.id===me.id)}</span><span class="mu">${Math.round(p.elo_same)}</span></div>`).join('')||'<span class="mu">Chưa có dữ liệu</span>'}</div>`;
 
+function chBlock(){
+  const act=C.filter(c=>['open','accepted'].includes(c.status)),now=new Date(),today=now.toDateString(),by=(a,b)=>new Date(a.play_at)-new Date(b.play_at);
+  const row=(c,full)=>`<div class="row"><span>${cline(c)}</span><span class="mu" style="text-align:right">${full?ctime(c):new Date(c.play_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · ${CS[c.status]}</span></div>`;
+  const td=act.filter(c=>new Date(c.play_at).toDateString()===today).sort(by);
+  if(td.length)return `<h2>Thách đấu hôm nay</h2><div class="card">${td.map(c=>row(c)).join('')}</div>`;
+  const end=new Date(now.getFullYear(),now.getMonth(),now.getDate()+8);
+  const up=act.filter(c=>{const t=new Date(c.play_at);return t>now&&t<end&&t.toDateString()!==today}).sort(by);
+  return `<h2>Thách đấu sắp tới</h2><div class="card">${up.length?'<p class="mu" style="margin:0 0 6px">Hôm nay chưa có thách đấu. Các thách đấu trong 7 ngày tới:</p>'+up.map(c=>row(c,1)).join(''):'<span class="mu">Hôm nay và 7 ngày tới chưa có thách đấu nào.</span>'}</div>`;
+}
 function news(){
   const d=monthDelta(),ch=Object.entries(d).filter(([,v])=>Math.abs(v)>=.5).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,3);
   return `<p class="mu" style="margin:0">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
   <h2>Top 3 Nam</h2>${top3Html('nam')}<h2>Top 3 Nữ</h2>${top3Html('nu')}
   <h2>Biến động điểm trong tháng</h2><div class="card">${ch.map(([id,v])=>`<div class="row"><span>${esc(pn(id))}</span><b class="${v>0?'ok':'er'}">${v>0?'▲ +':'▼ '}${Math.round(v)}</b></div>`).join('')||'<span class="mu">Chưa có trận nào được xác nhận trong tháng này.</span>'}</div>
   <h2>Kết quả hôm nay</h2><div class="card">${conf().filter(m=>new Date(m.confirmed_at).toDateString()===new Date().toDateString()).map(m=>`<div class="row"><span>${mline(m)}</span><span class="mu">±${Math.round(Math.abs(m.delta))}</span></div>`).join('')||'<span class="mu">Hôm nay chưa có trận nào được xác nhận.</span>'}</div>
-  <h2>Thách đấu hôm nay</h2><div class="card">${C.filter(c=>['open','accepted'].includes(c.status)&&new Date(c.play_at).toDateString()===new Date().toDateString()).reverse().map(c=>`<div class="row"><span>${cline(c)}</span><span class="mu">${new Date(c.play_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · ${CS[c.status]}</span></div>`).join('')||'<span class="mu">Hôm nay chưa có thách đấu nào.</span>'}</div>`;
+  ${chBlock()}`;
 }
 
 
@@ -155,29 +173,32 @@ function meView(){
   const w=mm.filter(m=>(m.a1===me.id||m.a2===me.id)===(m.score_a>m.score_b)).length;
   return `<div class="card"><div class="who" style="font-size:18px;gap:12px">${av(me,1)}<div>${nm(me,isTop(me))} ${me.is_admin?'<span class="mu">(admin)</span>':''}<br><label class="mu" style="text-decoration:underline;font-weight:600">Đổi ảnh đại diện<input id="avf" type="file" accept="image/*" hidden></label></div></div>
   <div class="two" style="margin-top:8px"><div><div class="big">#${rs}</div><span class="mu">Hạng ${GN[me.gender]} (trên ${same.length})</span></div>
-  <div><div class="big">${Math.round(me.elo_same)}</div><span class="mu">Điểm hiện tại</span></div></div></div>
+  <div><div class="big">${Math.round(me.elo_same)} ${pot(me)}</div><span class="mu">Điểm · Rank pot${potIdx(me)>0?`<br>Cần +${Math.max(1,Math.ceil(POTS[potIdx(me)-1][1]-me.elo_same))} điểm để lên pot ${POTS[potIdx(me)-1][0]}`:''}</span></div></div></div>
   <h2>Trận đã đánh tháng này (${mm.length}${mm.length?' · thắng '+w:''})</h2><div class="card">${mm.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')||'<span class="mu">Chưa có trận nào.</span>'}</div>
   ${rankTable('Bảng xếp hạng '+GN[me.gender],same,'elo_same')}
   <h2>Giải đấu đã đăng ký</h2><div class="card mu">Sẽ có ở giai đoạn 3.</div>
   <button class="pri" id="out" style="background:#fff;color:var(--p);border:1px solid var(--p)">Đăng xuất</button>`;
 }
 function members(){
-  const n=P.filter(p=>p.gender==='nam').length,f=P.length-n;
+  const n=P.filter(p=>p.gender==='nam').length,f=P.length-n,list=[...P].sort((a,b)=>b.elo_same-a.elo_same);
   return `<div class="two"><div class="card"><div class="big">${n}</div>Nam</div><div class="card"><div class="big">${f}</div>Nữ</div></div>
-  <div class="card">${P.map(p=>`<div class="row"><span class="who">${av(p)}${nm(p,p.id===me.id)}</span><span class="mu">${GN[p.gender]}${p.is_admin?' · admin':''}</span></div>`).join('')}</div>`;
+  <p class="mu" style="margin:0 0 8px">Số người theo pot: ${POTS.map(x=>x[0]+' '+P.filter(p=>potOf(p)===x[0]).length).join(' · ')}</p>
+  <div class="card"><div class="mem mu" style="font-size:12px;font-weight:600"><span>Thành viên</span><span>Giới</span><span>Pot</span><span>Điểm</span></div>${list.map(p=>`<div class="mem"><span class="who">${av(p)}<span>${nm(p,p.id===me.id)}${p.is_admin?' <span class="mu">(admin)</span>':''}</span></span><span class="mu">${GN[p.gender]}</span><span>${pot(p)}</span><span class="mu">${Math.round(p.elo_same)}</span></div>`).join('')}</div>`;
 }
 
 const GUIDE=[
 ['Đăng ký & đăng nhập',`<ol><li>Mở trang web, bấm <b>Chưa có tài khoản? Đăng ký</b>.</li><li>Điền họ tên, giới tính, trình độ, email và mật khẩu từ 6 ký tự trở lên.</li><li>Lần sau chỉ cần đăng nhập bằng email và mật khẩu đó.</li></ol><p>Hãy chọn đúng <b>giới tính</b> vì sau này không tự sửa được. Trình độ chỉ dùng để cấp điểm khởi đầu: Mới chơi 900, Trung bình 1000, Khá 1100. Sau đó điểm thay đổi theo kết quả thi đấu thực tế.</p>`],
-['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Top 3 Nam và Top 3 Nữ. Nếu tên bạn nằm trong Top 3 thì tên được in đậm.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Kết quả các trận đã xác nhận trong ngày, kèm số điểm thay đổi.</li><li>Các thách đấu diễn ra trong ngày.</li></ul>`],
+['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Top 3 Nam và Top 3 Nữ. Nếu tên bạn nằm trong Top 3 thì tên được in đậm.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Kết quả các trận đã xác nhận trong ngày, kèm số điểm thay đổi.</li><li>Thách đấu trong ngày. Nếu hôm nay chưa có, trang hiển thị các thách đấu trong 7 ngày tới.</li></ul>`],
 ['Nhập kết quả trận đấu',`<ol><li>Vào tab <b>Kết quả</b>, kéo xuống mục <b>Nhập kết quả mới</b>.</li><li>Chọn partner của bạn và hai đối thủ.</li><li>Nhập điểm của đội bạn và điểm của đối thủ (không được hòa).</li><li>Bấm <b>Gửi kết quả</b>.</li></ol><p>Hai đội phải cùng loại đôi: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ. Điểm chỉ được tính sau khi đối thủ xác nhận.</p>`],
 ['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận.</p>`],
 ['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người chỉ có một điểm duy nhất. Mọi trận (Nam-Nam, Nam-Nữ, Nữ-Nữ) đều ảnh hưởng đến điểm này.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
 ['Thách đấu',`<ol><li>Vào tab <b>Thách đấu</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
+['Quy tắc thách đấu',`<ul><li>Mỗi thách đấu cần đủ <b>4 người khác nhau</b>: bạn, partner và hai người của đội bị thách.</li><li>Hai đội phải <b>cùng loại đôi</b>: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ.</li><li>Thời gian thách đấu phải ở <b>tương lai</b>.</li><li>Chỉ hai người của đội bị thách mới trả lời được. Chỉ cần <b>một trong hai</b> nhận lời hoặc từ chối là có hiệu lực cho cả đội.</li><li>Trạng thái: <b>Chờ nhận lời</b>, sau đó là <b>Đã nhận lời</b>, <b>Đã từ chối</b> hoặc <b>Đã hủy</b>.</li><li>Người tạo (hoặc admin) hủy được khi thách đấu đang chờ hoặc đã nhận lời. Nếu không đến được, hãy hủy sớm để đội kia kịp sắp xếp.</li><li>Thách đấu chỉ là lời hẹn, không tự ghi điểm. Sau khi đánh xong, hãy nhập tỷ số ở tab <b>Kết quả</b> để đối thủ xác nhận.</li></ul>`],
 ['Gợi ý trận đấu',`<p>Ở tab <b>Thách đấu</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
 ['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Bảng xếp hạng đầy đủ của nhóm cùng giới với bạn, tên bạn được tô nổi.</li><li>Nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
 ['Ảnh đại diện',`<ol><li>Vào tab <b>Của tôi</b>.</li><li>Bấm <b>Đổi ảnh đại diện</b> và chọn một ảnh từ điện thoại.</li><li>Kéo ảnh để căn mặt vào giữa khung tròn, kéo thanh để phóng to, rồi bấm <b>Lưu ảnh</b>.</li><li>Ảnh hiển thị hình tròn cạnh tên bạn trong các bảng xếp hạng và danh sách thành viên.</li></ol><p>Nếu chưa có ảnh, hệ thống hiện chữ cái đầu tên của bạn.</p>`],
 ['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
+['Rank pot',`<p>Rank pot chia thành viên thành 4 nhóm A, B, C, D theo điểm hiện tại, mỗi pot cách nhau 150 điểm:</p><ul><li><b>Pot A:</b> từ 1225 điểm</li><li><b>Pot B:</b> 1075 đến 1224 điểm</li><li><b>Pot C:</b> 925 đến 1074 điểm</li><li><b>Pot D:</b> dưới 925 điểm</li></ul><p>Pot tự đổi khi điểm của bạn thay đổi. Xem pot của bạn ở tab <b>Của tôi</b> và pot của mọi người ở tab <b>Thành viên</b>. Pot sẽ được dùng để chia nhóm bốc thăm ở các giải đấu.</p>`],
 ['Giải đấu',`<p>Tính năng giải đấu (đăng ký giải, chia pot, bốc thăm) sẽ được bổ sung trong thời gian tới.</p>`]
 ];
 function guideView(){

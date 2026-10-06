@@ -29,7 +29,7 @@ button.sm.g{background:#fff;color:var(--er);border:1px solid var(--er)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .big{font-size:30px;font-weight:800;color:var(--p)}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--ln);display:flex}
-nav{overflow-x:auto}nav a{flex:1 0 auto;text-align:center;padding:10px 12px;color:var(--mu);text-decoration:none;font-size:11px;font-weight:600}
+nav{overflow-x:auto}nav a{flex:1 0 auto;text-align:center;padding:10px 6px;color:var(--mu);text-decoration:none;font-size:11px;font-weight:600}
 nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
 .gh{width:100%;text-align:left;background:#fff;border:1px solid var(--ln);border-radius:12px;padding:12px 14px;font:inherit;font-weight:600;color:var(--tx);display:flex;justify-content:space-between;margin-top:8px}
 .gh::after{content:'+';font-weight:800;color:var(--p)}
@@ -119,7 +119,11 @@ function chBlock(){
   const up=act.filter(c=>{const t=new Date(c.play_at);return t>now&&t<end&&t.toDateString()!==today}).sort(by);
   return `<h2>Thách đấu cặp đôi sắp tới</h2><div class="card">${up.length?'<p class="mu" style="margin:0 0 6px">Hôm nay chưa có thách đấu. Các thách đấu trong 7 ngày tới:</p>'+up.map(c=>row(c,1)).join(''):'<span class="mu">Hôm nay và 7 ngày tới chưa có thách đấu nào.</span>'}</div>`;
 }
-const top3Table=()=>`<div class="card">${[['nam','Top 3 Nam'],['nu','Top 3 Nữ']].map(([g,t])=>`<div class="mu" style="font-weight:700;color:var(--p);padding:4px 0">${t}</div>`+(top3(g).map((p,i)=>`<div class="row ${p.id===me.id?'me':''}"><span class="who">${av(p)}${i+1}. ${nm(p,p.id===me.id)}</span>${pot(p)}</div>`).join('')||'<div class="mu">Chưa có dữ liệu</div>')).join('')}</div>`;
+const top3Table=()=>{
+  const n=top3('nam'),f=top3('nu'),cell=p=>p?`<span style="overflow-wrap:anywhere">${nm(p,p.id===me.id)}</span><span style="text-align:center">${pot(p)}</span>`:'<span class="mu">—</span><span></span>';
+  const g='display:grid;grid-template-columns:40px 1fr 30px 1fr 30px;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--ln)';
+  return `<div class="card" style="padding-top:2px;padding-bottom:2px"><div class="mu" style="${g};font-size:12px;font-weight:700"><span>Vị trí</span><span>Nam</span><span style="text-align:center">Pot</span><span>Nữ</span><span style="text-align:center">Pot</span></div>${[0,1,2].map(i=>`<div style="${g}"><b style="color:var(--p)">${i+1}</b>${cell(n[i])}${cell(f[i])}</div>`).join('')}</div>`;
+};
 function resBlock(){
   const dayD=d=>{const t=new Date();t.setHours(0,0,0,0);t.setDate(t.getDate()-d);return t},lab=d=>d===0?'Hôm nay':d===1?'Hôm qua':dayD(d).toLocaleDateString('vi-VN',{day:'numeric',month:'numeric'});
   const gr=[0,1,2].map(d=>[d,conf().filter(m=>new Date(m.confirmed_at).toDateString()===dayD(d).toDateString())]).filter(([,l])=>l.length),h=d=>`<div class="mu" style="font-weight:700;color:var(--p);padding:4px 0">${lab(d)}</div>`;
@@ -128,9 +132,9 @@ function resBlock(){
 function news(){
   const d=monthDelta(),ch=Object.entries(d).filter(([,v])=>Math.abs(v)>=.5).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,3);
   return `<p class="mu" style="margin:0">${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
+  ${resBlock()}
   <h2>Bảng xếp hạng Top 3</h2>${top3Table()}
   <h2>Biến động điểm trong tháng</h2><div class="card">${ch.map(([id,v])=>`<div class="row"><span>${esc(pn(id))}</span><b class="${v>0?'ok':'er'}">${v>0?'▲ +':'▼ '}${Math.round(v)}</b></div>`).join('')||'<span class="mu">Chưa có trận nào được xác nhận trong tháng này.</span>'}</div>
-  ${resBlock()}
   ${chBlock()}`;
 }
 
@@ -173,7 +177,7 @@ function submitView(){
   <h2>Nhập kết quả mới</h2><form class="card" id="mf"><label>Đội của bạn: bạn và</label><select name="a2" required>${opt}</select>
   <label>Đội đối thủ</label><select name="b1" required>${opt}</select><select name="b2" required>${opt}</select>
   <div class="two"><div><label>Điểm đội bạn</label><input name="sa" type="number" min="0" required></div><div><label>Điểm đối thủ</label><input name="sb" type="number" min="0" required></div></div>
-  <button class="pri">Gửi kết quả</button></form>${adm}`;
+  <button class="pri">Gửi kết quả</button></form>${challengeView()}${adm}`;
 }
 
 function rankTable(title,list,key){
@@ -204,9 +208,9 @@ const GUIDE=[
 ['Nhập kết quả trận đấu',`<ol><li>Vào tab <b>Kết quả</b>, kéo xuống mục <b>Nhập kết quả mới</b>.</li><li>Chọn partner của bạn và hai đối thủ.</li><li>Nhập điểm của đội bạn và điểm của đối thủ (không được hòa).</li><li>Bấm <b>Gửi kết quả</b>.</li></ol><p>Hai đội phải cùng loại đôi: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ. Điểm chỉ được tính sau khi đối thủ xác nhận.</p>`],
 ['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận. Mỗi trận được khóa sau 2 ngày kể từ lúc xác nhận (hoặc khi admin bấm Chốt; Chốt cũng xác nhận luôn trận đang chờ). Trận đã khóa không sửa hay hủy được nữa, nên hãy báo sớm nếu có sai sót.</p>`],
 ['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người chỉ có một điểm duy nhất. Mọi trận (Nam-Nam, Nam-Nữ, Nữ-Nữ) đều ảnh hưởng đến điểm này.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
-['Thách đấu',`<ol><li>Vào tab <b>Thách đấu</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
+['Thách đấu',`<ol><li>Vào tab <b>Kết quả</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
 ['Quy tắc thách đấu',`<ul><li>Mỗi thách đấu cần đủ <b>4 người khác nhau</b>: bạn, partner và hai người của đội bị thách.</li><li>Hai đội phải <b>cùng loại đôi</b>: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ.</li><li>Thời gian thách đấu phải ở <b>tương lai</b>.</li><li>Chỉ hai người của đội bị thách mới trả lời được. Chỉ cần <b>một trong hai</b> nhận lời hoặc từ chối là có hiệu lực cho cả đội.</li><li>Trạng thái: <b>Chờ nhận lời</b>, sau đó là <b>Đã nhận lời</b>, <b>Đã từ chối</b> hoặc <b>Đã hủy</b>.</li><li>Người tạo (hoặc admin) hủy được khi thách đấu đang chờ hoặc đã nhận lời. Nếu không đến được, hãy hủy sớm để đội kia kịp sắp xếp.</li><li>Thách đấu chỉ là lời hẹn, không tự ghi điểm. Sau khi đánh xong, hãy nhập tỷ số ở tab <b>Kết quả</b> để đối thủ xác nhận.</li></ul>`],
-['Gợi ý trận đấu',`<p>Ở tab <b>Thách đấu</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
+['Gợi ý trận đấu',`<p>Ở tab <b>Kết quả</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
 ['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Bảng xếp hạng đầy đủ của nhóm cùng giới với bạn, tên bạn được tô nổi.</li><li>Mục <b>Đổi mật khẩu</b> và nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
 ['Ảnh đại diện',`<ol><li>Vào tab <b>Của tôi</b>.</li><li>Bấm <b>Đổi ảnh đại diện</b> và chọn một ảnh từ điện thoại.</li><li>Kéo ảnh để căn mặt vào giữa khung tròn, kéo thanh để phóng to, rồi bấm <b>Lưu ảnh</b>.</li><li>Ảnh hiển thị hình tròn cạnh tên bạn trong các bảng xếp hạng và danh sách thành viên.</li></ol><p>Nếu chưa có ảnh, hệ thống hiện chữ cái đầu tên của bạn.</p>`],
 ['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
@@ -274,12 +278,12 @@ function tourView(){
   return `<h2 style="margin-top:0">Danh sách giải</h2>${T.map(tCard).join('')||'<div class="card mu">Chưa có giải nào.</div>'}${form}`;
 }
 
-const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView,'Kết quả'],challenge:['Thách đấu',challengeView],tour:['Giải đấu',tourView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
+const TABS={news:['Hot news',news],submit:['Kết quả & thách đấu',submitView,'Kết quả'],tour:['Giải đấu',tourView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
 function render(){
   if(!session)return authView();
   if(!me){$('#root').innerHTML='<div style="padding:20px"><p>Đang tải hồ sơ…</p><p class="mu">Nếu chờ quá lâu, tài khoản này chưa có hồ sơ. Hãy đăng xuất, xóa tài khoản trong Supabase rồi đăng ký lại.</p><button class="pri" id="out">Đăng xuất</button></div>';$('#out').onclick=()=>sb.auth.signOut();return}
   $('#root').innerHTML=`<header><img src="logo.svg" alt=""><div><h1>Pikachu Ngọc Hồi</h1><small>${TABS[tab][0]}</small></div></header>
-  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[2]||v[0]}${(k==='submit'&&inbox().m)||(k==='challenge'&&inbox().c)?` <span style="background:var(--er);color:#fff;border-radius:9px;padding:0 6px">${k==='submit'?inbox().m:inbox().c}</span>`:''}</a>`).join('')}</nav>`;
+  <main>${TABS[tab][1]()}</main><nav>${Object.entries(TABS).map(([k,v])=>`<a href="#${k}" class="${k===tab?'on':''}">${v[2]||v[0]}${(k==='submit'&&inbox().m+inbox().c)?` <span style="background:var(--er);color:#fff;border-radius:9px;padding:0 6px">${inbox().m+inbox().c}</span>`:''}</a>`).join('')}</nav>`;
   const id=s=>document.querySelector(`[data-${s}]`);
   document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>rpc('confirm_match',{p_id:b.dataset.ok}));
   document.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>rpc('reject_match',{p_id:b.dataset.no}));

@@ -29,7 +29,7 @@ button.sm.g{background:#fff;color:var(--er);border:1px solid var(--er)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .big{font-size:30px;font-weight:800;color:var(--p)}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--ln);display:flex}
-nav a{flex:1;text-align:center;padding:10px 2px;color:var(--mu);text-decoration:none;font-size:11px;font-weight:600}
+nav{overflow-x:auto}nav a{flex:1 0 auto;text-align:center;padding:10px 12px;color:var(--mu);text-decoration:none;font-size:11px;font-weight:600}
 nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
 .gh{width:100%;text-align:left;background:#fff;border:1px solid var(--ln);border-radius:12px;padding:12px 14px;font:inherit;font-weight:600;color:var(--tx);display:flex;justify-content:space-between;margin-top:8px}
 .gh::after{content:'+';font-weight:800;color:var(--p)}
@@ -56,7 +56,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GN={nam:'Nam',nu:'Nữ'},TY={mm:'Nam-Nam',mf:'Nam-Nữ',ff:'Nữ-Nữ'};
-let session,me,P=[],M=[],C=[],tab='news',regMode=false;
+let session,me,P=[],M=[],C=[],T=[],E=[],PR=[],tab='news',regMode=false;
 
 const pn=id=>P.find(p=>p.id===id)?.full_name||'?';
 const sorted=(g,k)=>P.filter(p=>!g||p.gender===g).sort((a,b)=>b[k]-a[k]);
@@ -74,11 +74,16 @@ const conf=()=>M.filter(m=>m.status==='confirmed');
 const monthM=()=>conf().filter(m=>new Date(m.confirmed_at)>=monthStart());
 const inM=(m,id)=>[m.a1,m.a2,m.b1,m.b2].includes(id);
 function monthDelta(){const d={};monthM().forEach(m=>{[m.a1,m.a2].forEach(i=>d[i]=(d[i]||0)+m.delta);[m.b1,m.b2].forEach(i=>d[i]=(d[i]||0)-m.delta)});return d}
+const LOCK_DAYS=2,ST={pending:'Chờ xác nhận',confirmed:'Đã xác nhận',rejected:'Bị từ chối',cancelled:'Đã hủy'};
+const isLocked=m=>m.status==='confirmed'&&(m.locked||Date.now()-new Date(m.confirmed_at)>LOCK_DAYS*864e5);
 const mline=m=>`${esc(pn(m.a1))} & ${esc(pn(m.a2))} <b>${m.score_a}-${m.score_b}</b> ${esc(pn(m.b1))} & ${esc(pn(m.b2))}`;
 
 async function load(){
   P=(await sb.from('profiles').select('*')).data||[];
   M=(await sb.from('matches').select('*').order('created_at',{ascending:false}).limit(300)).data||[];
+  T=(await sb.from('tournaments').select('*').order('start_date',{ascending:true})).data||[];
+  E=(await sb.from('t_entries').select('*')).data||[];
+  PR=(await sb.from('t_pairs').select('*')).data||[];
   C=(await sb.from('challenges').select('*').order('play_at',{ascending:false}).limit(200)).data||[];
   me=P.find(p=>p.id===session.user.id);
 }
@@ -156,7 +161,7 @@ function submitView(){
   const others=P.filter(p=>p.id!==me.id),opt=`<option value="">— chọn —</option>`+others.map(p=>`<option value="${p.id}">${esc(p.full_name)} (${GN[p.gender]})</option>`).join('');
   const wait=M.filter(m=>m.status==='pending');
   const mine=wait.filter(m=>m.b1===me.id||m.b2===me.id),sent=wait.filter(m=>m.created_by===me.id);
-  const adm=me.is_admin?`<h2>Quản trị: tất cả trận</h2><div class="card">${M.slice(0,40).map(m=>`<div class="row"><span>${mline(m)}<br><span class="mu">${TY[m.type]} · ${m.status}</span></span>${m.status==='cancelled'||m.status==='rejected'?'':`<span><button class="sm" data-set="${m.id}">Sửa</button> <button class="sm g" data-cx="${m.id}">Hủy</button></span>`}</div>`).join('')||'<span class="mu">Chưa có trận</span>'}</div>`:'';
+  const adm=me.is_admin?`<h2>Quản trị: tất cả trận</h2><div class="card">${M.slice(0,40).map(m=>`<div class="row"><span>${mline(m)}<br><span class="mu">${TY[m.type]} · ${ST[m.status]}${m.status==='confirmed'&&!isLocked(m)?' · tự khóa '+new Date(new Date(m.confirmed_at).getTime()+LOCK_DAYS*864e5).toLocaleDateString('vi-VN',{day:'numeric',month:'numeric'}):''}</span></span>${m.status==='cancelled'||m.status==='rejected'?'':isLocked(m)?'<span class="mu">🔒 Đã khóa</span>':`<span><button class="sm" data-set="${m.id}">Sửa</button> <button class="sm g" data-cx="${m.id}">Hủy</button>${m.status==='confirmed'?` <button class="sm" data-lk="${m.id}">Chốt</button>`:''}</span>`}</div>`).join('')||'<span class="mu">Chưa có trận</span>'}</div>`:'';
   return `<h2>Chờ bạn xác nhận</h2><div class="card">${mine.map(m=>`<div class="row"><span>${mline(m)}<br><span class="mu">${TY[m.type]}</span></span><span><button class="sm" data-ok="${m.id}">Xác nhận</button> <button class="sm g" data-no="${m.id}">Từ chối</button></span></div>`).join('')||'<span class="mu">Không có trận nào cần xác nhận.</span>'}</div>
   ${sent.length?`<h2>Bạn đã nhập, đang chờ đối thủ</h2><div class="card">${sent.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')}</div>`:''}
   <h2>Nhập kết quả mới</h2><form class="card" id="mf"><label>Đội của bạn: bạn và</label><select name="a2" required>${opt}</select>
@@ -176,7 +181,7 @@ function meView(){
   <div><div class="big">${Math.round(me.elo_same)} ${pot(me)}</div><span class="mu">Điểm · Rank pot${potIdx(me)>0?`<br>Cần +${Math.max(1,Math.ceil(POTS[potIdx(me)-1][1]-me.elo_same))} điểm để lên pot ${POTS[potIdx(me)-1][0]}`:''}</span></div></div></div>
   <h2>Trận đã đánh tháng này (${mm.length}${mm.length?' · thắng '+w:''})</h2><div class="card">${mm.map(m=>`<div class="row"><span>${mline(m)}</span></div>`).join('')||'<span class="mu">Chưa có trận nào.</span>'}</div>
   ${rankTable('Bảng xếp hạng '+GN[me.gender],same,'elo_same')}
-  <h2>Giải đấu đã đăng ký</h2><div class="card mu">Sẽ có ở giai đoạn 3.</div>
+  <h2>Giải đấu đã đăng ký</h2><div class="card">${T.filter(t=>E.some(e=>e.tid===t.id&&e.uid===me.id)).map(t=>{const e=E.find(x=>x.tid===t.id&&x.uid===me.id),r=PR.find(x=>x.tid===t.id&&(x.u1===me.id||x.u2===me.id));return `<div class="row"><span>${esc(t.name)}<br><span class="mu">${KD[t.kind]} · ${dfmt(t.start_date)}${e.pot?' · Pot '+e.pot:''}${r?' · Partner: '+esc(pn(r.u1===me.id?r.u2:r.u1)):''}</span></span><span style="color:var(--p);font-weight:600;text-align:right">${tst(t)}</span></div>`}).join('')||'<span class="mu">Bạn chưa đăng ký giải nào.</span>'}</div>
   <button class="pri" id="out" style="background:#fff;color:var(--p);border:1px solid var(--p)">Đăng xuất</button>`;
 }
 function members(){
@@ -190,7 +195,7 @@ const GUIDE=[
 ['Đăng ký & đăng nhập',`<ol><li>Mở trang web, bấm <b>Chưa có tài khoản? Đăng ký</b>.</li><li>Điền họ tên, giới tính, trình độ, email và mật khẩu từ 6 ký tự trở lên.</li><li>Lần sau chỉ cần đăng nhập bằng email và mật khẩu đó.</li></ol><p>Hãy chọn đúng <b>giới tính</b> vì sau này không tự sửa được. Trình độ chỉ dùng để cấp điểm khởi đầu: Mới chơi 900, Trung bình 1000, Khá 1100. Sau đó điểm thay đổi theo kết quả thi đấu thực tế.</p>`],
 ['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Top 3 Nam và Top 3 Nữ. Nếu tên bạn nằm trong Top 3 thì tên được in đậm.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Kết quả các trận đã xác nhận trong ngày, kèm số điểm thay đổi.</li><li>Thách đấu trong ngày. Nếu hôm nay chưa có, trang hiển thị các thách đấu trong 7 ngày tới.</li></ul>`],
 ['Nhập kết quả trận đấu',`<ol><li>Vào tab <b>Kết quả</b>, kéo xuống mục <b>Nhập kết quả mới</b>.</li><li>Chọn partner của bạn và hai đối thủ.</li><li>Nhập điểm của đội bạn và điểm của đối thủ (không được hòa).</li><li>Bấm <b>Gửi kết quả</b>.</li></ol><p>Hai đội phải cùng loại đôi: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ. Điểm chỉ được tính sau khi đối thủ xác nhận.</p>`],
-['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận.</p>`],
+['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận. Mỗi trận được khóa sau 2 ngày kể từ lúc xác nhận (hoặc khi admin bấm Chốt). Trận đã khóa không sửa hay hủy được nữa, nên hãy báo sớm nếu có sai sót.</p>`],
 ['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người chỉ có một điểm duy nhất. Mọi trận (Nam-Nam, Nam-Nữ, Nữ-Nữ) đều ảnh hưởng đến điểm này.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
 ['Thách đấu',`<ol><li>Vào tab <b>Thách đấu</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
 ['Quy tắc thách đấu',`<ul><li>Mỗi thách đấu cần đủ <b>4 người khác nhau</b>: bạn, partner và hai người của đội bị thách.</li><li>Hai đội phải <b>cùng loại đôi</b>: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ.</li><li>Thời gian thách đấu phải ở <b>tương lai</b>.</li><li>Chỉ hai người của đội bị thách mới trả lời được. Chỉ cần <b>một trong hai</b> nhận lời hoặc từ chối là có hiệu lực cho cả đội.</li><li>Trạng thái: <b>Chờ nhận lời</b>, sau đó là <b>Đã nhận lời</b>, <b>Đã từ chối</b> hoặc <b>Đã hủy</b>.</li><li>Người tạo (hoặc admin) hủy được khi thách đấu đang chờ hoặc đã nhận lời. Nếu không đến được, hãy hủy sớm để đội kia kịp sắp xếp.</li><li>Thách đấu chỉ là lời hẹn, không tự ghi điểm. Sau khi đánh xong, hãy nhập tỷ số ở tab <b>Kết quả</b> để đối thủ xác nhận.</li></ul>`],
@@ -199,7 +204,7 @@ const GUIDE=[
 ['Ảnh đại diện',`<ol><li>Vào tab <b>Của tôi</b>.</li><li>Bấm <b>Đổi ảnh đại diện</b> và chọn một ảnh từ điện thoại.</li><li>Kéo ảnh để căn mặt vào giữa khung tròn, kéo thanh để phóng to, rồi bấm <b>Lưu ảnh</b>.</li><li>Ảnh hiển thị hình tròn cạnh tên bạn trong các bảng xếp hạng và danh sách thành viên.</li></ol><p>Nếu chưa có ảnh, hệ thống hiện chữ cái đầu tên của bạn.</p>`],
 ['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
 ['Rank pot',`<p>Rank pot chia thành viên thành 4 nhóm A, B, C, D theo điểm hiện tại, mỗi pot cách nhau 150 điểm:</p><ul><li><b>Pot A:</b> từ 1225 điểm</li><li><b>Pot B:</b> 1075 đến 1224 điểm</li><li><b>Pot C:</b> 925 đến 1074 điểm</li><li><b>Pot D:</b> dưới 925 điểm</li></ul><p>Pot tự đổi khi điểm của bạn thay đổi. Xem pot của bạn ở tab <b>Của tôi</b> và pot của mọi người ở tab <b>Thành viên</b>. Pot sẽ được dùng để chia nhóm bốc thăm ở các giải đấu.</p>`],
-['Giải đấu',`<p>Tính năng giải đấu (đăng ký giải, chia pot, bốc thăm) sẽ được bổ sung trong thời gian tới.</p>`]
+['Giải đấu',`<ol><li>Vào tab <b>Giải đấu</b>, chọn giải đang đăng ký và bấm <b>Đăng ký</b>. Bạn hủy được đến khi admin chốt.</li><li>Admin chốt đăng ký: hệ thống chốt <b>Pot A-D</b> của mọi người và hiển thị danh sách từng pot.</li><li>Bốc thăm theo cách admin chọn cho giải đó.</li></ol><p><b>Cách bốc thăm:</b></p><ul><li><b>Hiện kết quả:</b> admin bốc, công bố, mọi người xem danh sách cặp.</li><li><b>Lật lá thăm:</b> partner được giấu, bạn bấm lật để biết partner của mình.</li><li><b>Tự bốc partner:</b> bạn bấm bốc, hệ thống chọn ngẫu nhiên một người phù hợp còn trống.</li></ul><p><b>Thể thức:</b> Ngang bằng ghép người cùng pot. Một mạnh một yếu ghép pot A với D, B với C. Giải Nam-Nam chỉ dành cho nam, Nữ-Nữ chỉ dành cho nữ, Nam-Nữ ghép một nam một nữ. Giải bạn đã đăng ký hiện ở tab <b>Của tôi</b>, tên bạn in đậm trong danh sách.</p>`]
 ];
 function guideView(){
   return `<p class="mu" style="margin:0">Bấm vào từng mục để xem chi tiết.</p>`+GUIDE.map(([t,b])=>`<button class="gh" aria-expanded="false">${t}</button><div class="gb">${b}</div>`).join('');
@@ -222,7 +227,47 @@ function cropAvatar(file){return new Promise(async(res,rej)=>{try{
   ov.querySelector('[data-s]').onclick=()=>{const o=document.createElement('canvas');o.width=o.height=256;draw(o.getContext('2d'),256/S);ov.remove();o.toBlob(b=>res(b),'image/jpeg',.88)};
 }catch(err){rej(err)}})}
 
-const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView,'Kết quả'],challenge:['Thách đấu',challengeView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
+const KD={mm:'Nam-Nam',mf:'Nam-Nữ',ff:'Nữ-Nữ',open:'Hỗn hợp'},PG={equal:'Ngang bằng',strong_weak:'Một mạnh một yếu'},DM={show:'Hiện kết quả',flip:'Lật lá thăm',pick:'Tự bốc partner'};
+const tst=t=>({registering:'Đang đăng ký',locked:'Đã chốt pot',drafted:'Chờ công bố',drawn:t.draw_mode==='pick'?'Đang bốc partner':'Đã bốc thăm'}[t.status]);
+const dfmt=d=>new Date(d+'T00:00').toLocaleDateString('vi-VN',{day:'numeric',month:'numeric'});
+const okG=t=>t.kind==='mm'?me.gender==='nam':t.kind==='ff'?me.gender==='nu':true;
+const nmB=id=>{const p=P.find(x=>x.id===id);return p?nm(p,id===me.id):'?'};
+function tCard(t){
+  const en=E.filter(e=>e.tid===t.id),mine=en.find(e=>e.uid===me.id),prs=PR.filter(r=>r.tid===t.id),mp=prs.find(r=>r.u1===me.id||r.u2===me.id);
+  const b=(fn,l,cls='',cf='')=>`<button class="sm ${cls}" data-rpc="${fn}" data-id="${t.id}" data-cf="${cf}">${l}</button> `,ad=me.is_admin;
+  let body='',btn='';
+  if(t.status==='registering'){
+    body=`<div class="mu">${en.length} người đã đăng ký${mine?' · bạn đã đăng ký':''}</div>`;
+    btn=mine?b('unregister_tournament','Hủy đăng ký','g'):okG(t)?b('register_tournament','Đăng ký'):'<span class="mu">Không dành cho giới của bạn</span>';
+    if(ad)btn+=b('admin_lock','Chốt đăng ký & pot','','Chốt đăng ký? Pot của mọi người sẽ được chốt.');
+  }else{
+    body=['A','B','C','D'].map(k=>`<div class="row"><b>Pot ${k}</b><span style="text-align:right">${en.filter(e=>e.pot===k).map(e=>nmB(e.uid)).join(', ')||'—'}</span></div>`).join('');
+    if(t.status==='locked'&&ad)btn=b('admin_draw','Bốc thăm');
+    if(t.status==='drafted'){body+=`<div class="mu" style="margin-top:6px">${ad?'Bản nháp, chỉ admin thấy. Công bố để mọi người xem.':'Đã bốc thăm, chờ admin công bố.'}</div>`;if(ad)btn=b('admin_publish','Công bố')+b('admin_draw','Bốc lại','g','Bốc lại sẽ thay toàn bộ cặp hiện tại.')}
+    if(t.status==='drawn'||(t.status==='drafted'&&ad)){
+      if(t.draw_mode==='flip'&&mine&&!mp)btn+=b('flip_card','🎴 Lật lá thăm của tôi');
+      if(t.draw_mode==='pick'&&mine&&!mp)btn+=b('pick_partner','🎲 Bốc partner');
+      if(mp)body+=`<div class="card" style="margin:8px 0 0;background:#efe7ff">Partner của bạn: <b>${nmB(mp.u1===me.id?mp.u2:mp.u1)}</b></div>`;
+      if(prs.length)body+=`<div style="margin-top:8px"><b>Danh sách cặp</b></div>`+prs.map(r=>`<div class="row"><span>${nmB(r.u1)} & ${nmB(r.u2)}</span></div>`).join('');
+      if(t.draw_mode==='pick'){const un=en.filter(e=>!prs.some(r=>r.u1===e.uid||r.u2===e.uid));if(un.length)body+=`<div class="mu" style="margin-top:6px">Chưa có cặp: ${un.map(e=>nmB(e.uid)).join(', ')}</div>`}
+      if(t.draw_mode==='flip'&&!t.revealed_all&&!mp)body+='<div class="mu" style="margin-top:6px">Lá thăm của bạn đang úp. Lật để biết partner.</div>';
+      if(ad){if(t.draw_mode==='flip'&&!t.revealed_all&&t.status==='drawn')btn+=b('admin_reveal_all','Mở tất cả lá thăm');if(t.status==='drawn')btn+=b('admin_reset','Hủy bốc thăm','g','Hủy bốc thăm và xóa toàn bộ cặp?')}
+    }
+  }
+  return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(t.name)}</b><span style="color:var(--p);font-weight:600;text-align:right">${tst(t)}</span></div>
+  <div class="mu" style="margin:2px 0 8px">${KD[t.kind]} · ${dfmt(t.start_date)}–${dfmt(t.end_date)} · ${PG[t.pairing]} · ${DM[t.draw_mode]} · ${t.affects_rank?'Tính xếp hạng':'Không tính xếp hạng'}</div>${body}${btn?`<div style="margin-top:10px">${btn}</div>`:''}</div>`;
+}
+function tourView(){
+  const o=(m)=>Object.entries(m).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  const form=me.is_admin?`<h2>Tạo giải mới</h2><form class="card" id="tf"><label>Tên giải</label><input name="n" required>
+  <div class="two"><div><label>Loại giải</label><select name="k">${o(KD)}</select></div><div><label>Thể thức ghép cặp</label><select name="p">${o(PG)}</select></div></div>
+  <div class="two"><div><label>Từ ngày</label><input name="s" type="date" required></div><div><label>Đến ngày</label><input name="e" type="date" required></div></div>
+  <label>Cách bốc thăm</label><select name="d">${o(DM)}</select>
+  <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><input name="a" type="checkbox" checked style="width:auto;margin:0">Kết quả giải ảnh hưởng đến xếp hạng</label><button class="pri">Tạo giải</button></form>`:'';
+  return `<h2 style="margin-top:0">Danh sách giải</h2>${T.map(tCard).join('')||'<div class="card mu">Chưa có giải nào.</div>'}${form}`;
+}
+
+const TABS={news:['Hot news',news],submit:['Nhập kết quả',submitView,'Kết quả'],challenge:['Thách đấu',challengeView],tour:['Giải đấu',tourView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
 function render(){
   if(!session)return authView();
   if(!me){$('#root').innerHTML='<div style="padding:20px"><p>Đang tải hồ sơ…</p><p class="mu">Nếu chờ quá lâu, tài khoản này chưa có hồ sơ. Hãy đăng xuất, xóa tài khoản trong Supabase rồi đăng ký lại.</p><button class="pri" id="out">Đăng xuất</button></div>';$('#out').onclick=()=>sb.auth.signOut();return}
@@ -249,6 +294,11 @@ function render(){
       const up=await sb.storage.from('avatars').upload(path,blob,{upsert:true,contentType:'image/jpeg'});if(up.error)throw up.error;
       await rpc('set_avatar',{p_url:sb.storage.from('avatars').getPublicUrl(path).data.publicUrl+'?v='+Date.now()})}
     catch(err){alert('Không tải được ảnh: '+err.message)}};
+  document.querySelectorAll('[data-lk]').forEach(b=>b.onclick=()=>confirm('Chốt trận này? Sau khi chốt sẽ không sửa hoặc hủy được nữa.')&&rpc('admin_lock_match',{p_id:b.dataset.lk}));
+  document.querySelectorAll('[data-rpc]').forEach(b=>b.onclick=()=>{if(b.dataset.cf&&!confirm(b.dataset.cf))return;rpc(b.dataset.rpc,{p_id:b.dataset.id})});
+  if($('#tf'))$('#tf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));if(f.e<f.s)return alert('Ngày kết thúc phải sau ngày bắt đầu.');
+    const{error}=await sb.from('tournaments').insert({name:f.n.trim(),kind:f.k,pairing:f.p,draw_mode:f.d,start_date:f.s,end_date:f.e,affects_rank:!!f.a});
+    if(error)return alert(error.message);await load();render()};
   if($('#out'))$('#out').onclick=()=>sb.auth.signOut();
   if($('#mf'))$('#mf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),g=i=>P.find(p=>p.id===i)?.gender,ids=[me.id,f.a2,f.b1,f.b2];
     if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');

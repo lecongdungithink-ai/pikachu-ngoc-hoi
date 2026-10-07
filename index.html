@@ -44,6 +44,7 @@ nav a.on{color:var(--p);box-shadow:inset 0 3px var(--p)}
 .who{display:flex;align-items:center;gap:8px}
 .av{width:32px;height:32px;border-radius:50%;object-fit:cover;background:#ddd6fe;color:var(--p);display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none}
 .av.lg{width:72px;height:72px;font-size:28px}
+.ke{font-size:12px;font-style:italic;color:var(--ok)}
 .auth{max-width:380px;margin:30px auto;padding:0 14px}
 :focus-visible{outline:3px solid var(--p2);outline-offset:2px}
 </style></head><body>
@@ -112,12 +113,12 @@ const top3Html=g=>`<div class="card">${top3(g).map((p,i)=>`<div class="row ${p.i
 
 function chBlock(){
   const act=C.filter(c=>['open','accepted'].includes(c.status)),now=new Date(),today=now.toDateString(),by=(a,b)=>new Date(a.play_at)-new Date(b.play_at);
-  const row=(c,full)=>`<div class="row"><span>${cline(c)}</span><span class="mu" style="text-align:right">${full?ctime(c):new Date(c.play_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · ${CS[c.status]}</span></div>`;
+  const row=(c,full)=>`<div class="row"><span>${cline(c)}${c.bet?`<br>${ke(c)}`:''}</span><span class="mu" style="text-align:right">${full?ctime(c):new Date(c.play_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} · ${CS[c.status]}</span></div>`;
   const td=act.filter(c=>new Date(c.play_at).toDateString()===today).sort(by);
-  if(td.length)return `<h2>Thách đấu cặp đôi hôm nay</h2><div class="card">${td.map(c=>row(c)).join('')}</div>`;
+  if(td.length)return `<h2>Set kèo cặp đôi hôm nay</h2><div class="card">${td.map(c=>row(c)).join('')}</div>`;
   const end=new Date(now.getFullYear(),now.getMonth(),now.getDate()+8);
   const up=act.filter(c=>{const t=new Date(c.play_at);return t>now&&t<end&&t.toDateString()!==today}).sort(by);
-  return `<h2>Thách đấu cặp đôi sắp tới</h2><div class="card">${up.length?'<p class="mu" style="margin:0 0 6px">Hôm nay chưa có thách đấu. Các thách đấu trong 7 ngày tới:</p>'+up.map(c=>row(c,1)).join(''):'<span class="mu">Hôm nay và 7 ngày tới chưa có thách đấu nào.</span>'}</div>`;
+  return `<h2>Set kèo cặp đôi sắp tới</h2><div class="card">${up.length?'<p class="mu" style="margin:0 0 6px">Hôm nay chưa có kèo nào. Các kèo trong 7 ngày tới:</p>'+up.map(c=>row(c,1)).join(''):'<span class="mu">Hôm nay và 7 ngày tới chưa có kèo nào.</span>'}</div>`;
 }
 const top3Table=()=>{
   const n=top3('nam'),f=top3('nu'),cell=p=>p?`<span style="overflow-wrap:anywhere">${nm(p,p.id===me.id)}</span><span style="text-align:center">${pot(p)}</span>`:'<span class="mu">—</span><span></span>';
@@ -139,6 +140,7 @@ function news(){
 }
 
 
+const ke=c=>`<span class="ke">Kèo: ${esc(c.bet)}</span>`;
 const CS={open:'Chờ nhận lời',accepted:'Đã nhận lời',declined:'Đã từ chối',cancelled:'Đã hủy'};
 const ctime=c=>new Date(c.play_at).toLocaleString('vi-VN',{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
 const cline=c=>`${[c.a1,c.a2].map(i=>i===me.id?`<b>${esc(pn(i))}</b>`:esc(pn(i))).join(' & ')} <span class="mu">vs</span> ${[c.b1,c.b2].map(i=>i===me.id?`<b>${esc(pn(i))}</b>`:esc(pn(i))).join(' & ')}`;
@@ -159,12 +161,12 @@ function challengeView(){
   const inc=C.filter(c=>c.status==='open'&&(c.b1===me.id||c.b2===me.id));
   const mine=C.filter(c=>[c.a1,c.a2,c.b1,c.b2].includes(me.id)&&c.status!=='declined').slice(0,15);
   const sg=sugg();
-  return `<h2>Lời thách đấu gửi đến bạn</h2><div class="card">${inc.map(c=>`<div class="row"><span>${cline(c)}<br><span class="mu">${ctime(c)}</span></span><span><button class="sm" data-acc="${c.id}">Nhận lời</button> <button class="sm g" data-dec="${c.id}">Từ chối</button></span></div>`).join('')||'<span class="mu">Chưa có lời thách đấu nào.</span>'}</div>
-  <h2>Gợi ý trận cân tài cân sức</h2><div class="card">${sg.map(o=>`<div class="row"><span><b>Bạn</b> & ${esc(pn(o.a))} <span class="mu">vs</span> ${esc(pn(o.b))} & ${esc(pn(o.c))}<br><span class="mu">Chênh khoảng ${Math.round(o.d)} điểm</span></span><button class="sm" data-sug="${o.a},${o.b},${o.c}">Thách đấu</button></div>`).join('')||'<span class="mu">Cần thêm thành viên để gợi ý trận.</span>'}</div>
-  <h2>Tạo thách đấu</h2><form class="card" id="cf" onsubmit="return false"><label>Đội của bạn: bạn và</label><select name="a2" required>${opt}</select>
-  <label>Đội bị thách đấu</label><select name="b1" required>${opt}</select><select name="b2" required>${opt}</select>
-  <label>Thời gian</label><input name="t" type="datetime-local" required><button class="pri">Gửi thách đấu</button></form>
-  <h2>Thách đấu của bạn</h2><div class="card">${mine.map(c=>`<div class="row"><span>${cline(c)}<br><span class="mu">${ctime(c)} · ${CS[c.status]}</span></span>${c.created_by===me.id&&['open','accepted'].includes(c.status)?`<button class="sm g" data-cxc="${c.id}">Hủy</button>`:''}</div>`).join('')||'<span class="mu">Chưa có thách đấu.</span>'}</div>`;
+  return `<h2>Kèo gửi đến bạn</h2><div class="card">${inc.map(c=>`<div class="row"><span>${cline(c)}<br><span class="mu">${ctime(c)}${c.bet?' · '+ke(c):''}</span></span><span><button class="sm" data-acc="${c.id}">Nhận lời</button> <button class="sm g" data-dec="${c.id}">Từ chối</button></span></div>`).join('')||'<span class="mu">Chưa có kèo nào gửi đến bạn.</span>'}</div>
+  <h2>Gợi ý trận cân tài cân sức</h2><div class="card">${sg.map(o=>`<div class="row"><span><b>Bạn</b> & ${esc(pn(o.a))} <span class="mu">vs</span> ${esc(pn(o.b))} & ${esc(pn(o.c))}<br><span class="mu">Chênh khoảng ${Math.round(o.d)} điểm</span></span><button class="sm" data-sug="${o.a},${o.b},${o.c}">Set kèo</button></div>`).join('')||'<span class="mu">Cần thêm thành viên để gợi ý trận.</span>'}</div>
+  <h2>Set kèo mới</h2><form class="card" id="cf" onsubmit="return false"><label>Đội của bạn: bạn và</label><select name="a2" required>${opt}</select>
+  <label>Đội đối thủ</label><select name="b1" required>${opt}</select><select name="b2" required>${opt}</select>
+  <label>Thời gian</label><input name="t" type="datetime-local" required><label>Kèo (ví dụ: ăn sáng, ăn trưa...)</label><input name="bet" maxlength="60" placeholder="Ăn sáng, ăn trưa, cà phê..."><button class="pri">Gửi kèo</button></form>
+  <h2>Kèo của bạn</h2><div class="card">${mine.map(c=>`<div class="row"><span>${cline(c)}<br><span class="mu">${ctime(c)}${c.bet?' · '+ke(c):''} · ${CS[c.status]}</span></span>${c.created_by===me.id&&['open','accepted'].includes(c.status)?`<button class="sm g" data-cxc="${c.id}">Hủy</button>`:''}</div>`).join('')||'<span class="mu">Chưa có kèo.</span>'}</div>`;
 }
 
 function submitView(){
@@ -204,13 +206,13 @@ function members(){
 
 const GUIDE=[
 ['Đăng ký & đăng nhập',`<ol><li>Mở trang web, bấm <b>Chưa có tài khoản? Đăng ký</b>.</li><li>Điền họ tên, giới tính, trình độ, email và mật khẩu từ 6 ký tự trở lên.</li><li>Lần sau chỉ cần đăng nhập bằng email và mật khẩu đó.</li></ol><p>Hãy chọn đúng <b>giới tính</b> vì sau này không tự sửa được. Trình độ chỉ dùng để cấp điểm khởi đầu: Mới chơi 900, Trung bình 1000, Khá 1100. Sau đó điểm thay đổi theo kết quả thi đấu thực tế.</p>`],
-['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Bảng Top 3 Nam và Top 3 Nữ, kèm pot. Nếu tên bạn nằm trong Top 3 thì tên được tô nổi.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Kết quả thi đấu: ưu tiên hôm nay, sau đó là 2 ngày gần nhất, kèm số điểm thay đổi.</li><li>Thách đấu trong ngày. Nếu hôm nay chưa có, trang hiển thị các thách đấu trong 7 ngày tới.</li></ul>`],
+['Trang Hot news',`<p>Đây là trang đầu tiên, gồm:</p><ul><li>Ngày hôm nay.</li><li>Bảng Top 3 Nam và Top 3 Nữ, kèm pot. Nếu tên bạn nằm trong Top 3 thì tên được tô nổi.</li><li>Biến động điểm trong tháng: những người tăng hoặc giảm điểm nhiều nhất. Bảng này tự làm mới khi sang tháng.</li><li>Kết quả thi đấu: ưu tiên hôm nay, sau đó là 2 ngày gần nhất, kèm số điểm thay đổi.</li><li>Set kèo trong ngày. Nếu hôm nay chưa có, trang hiển thị các kèo trong 7 ngày tới.</li></ul>`],
 ['Nhập kết quả trận đấu',`<ol><li>Vào tab <b>Kết quả</b>, kéo xuống mục <b>Nhập kết quả mới</b>.</li><li>Chọn partner của bạn và hai đối thủ.</li><li>Nhập điểm của đội bạn và điểm của đối thủ (không được hòa).</li><li>Bấm <b>Gửi kết quả</b>.</li></ol><p>Hai đội phải cùng loại đôi: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ. Điểm chỉ được tính sau khi đối thủ xác nhận.</p>`],
 ['Xác nhận kết quả',`<p>Khi ai đó nhập trận có tên bạn là đối thủ, tab <b>Kết quả</b> sẽ có chấm đỏ báo số trận cần xác nhận.</p><ul><li>Mở mục <b>Chờ bạn xác nhận</b>, kiểm tra tỷ số.</li><li>Đúng thì bấm <b>Xác nhận</b>. Chỉ cần một trong hai đối thủ xác nhận là đủ.</li><li>Sai thì bấm <b>Từ chối</b>, người nhập sẽ nhập lại.</li></ul><p>Nếu có tranh cãi hoặc nhập nhầm sau khi đã xác nhận, hãy nhờ admin sửa tỷ số hoặc hủy trận. Mỗi trận được khóa sau 2 ngày kể từ lúc xác nhận (hoặc khi admin bấm Chốt; Chốt cũng xác nhận luôn trận đang chờ). Trận đã khóa không sửa hay hủy được nữa, nên hãy báo sớm nếu có sai sót.</p>`],
 ['Cách tính điểm & xếp hạng',`<ul><li>Hệ thống dùng điểm Elo. Thắng đội mạnh hơn được cộng nhiều điểm hơn, thắng đội yếu hơn được cộng ít hơn.</li><li>Điểm của đội là trung bình điểm hai người.</li><li>Mỗi người chỉ có một điểm duy nhất. Mọi trận (Nam-Nam, Nam-Nữ, Nữ-Nữ) đều ảnh hưởng đến điểm này.</li><li>Xem bảng xếp hạng đầy đủ ở tab <b>Của tôi</b>.</li></ul>`],
-['Thách đấu',`<ol><li>Vào tab <b>Kết quả</b>, mục <b>Tạo thách đấu</b>.</li><li>Chọn partner, hai người của đội bị thách và thời gian.</li><li>Bấm <b>Gửi thách đấu</b>.</li></ol><p>Đội bị thách sẽ thấy lời thách ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Thách đấu trong ngày sẽ hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
-['Quy tắc thách đấu',`<ul><li>Mỗi thách đấu cần đủ <b>4 người khác nhau</b>: bạn, partner và hai người của đội bị thách.</li><li>Hai đội phải <b>cùng loại đôi</b>: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ.</li><li>Thời gian thách đấu phải ở <b>tương lai</b>.</li><li>Chỉ hai người của đội bị thách mới trả lời được. Chỉ cần <b>một trong hai</b> nhận lời hoặc từ chối là có hiệu lực cho cả đội.</li><li>Trạng thái: <b>Chờ nhận lời</b>, sau đó là <b>Đã nhận lời</b>, <b>Đã từ chối</b> hoặc <b>Đã hủy</b>.</li><li>Người tạo (hoặc admin) hủy được khi thách đấu đang chờ hoặc đã nhận lời. Nếu không đến được, hãy hủy sớm để đội kia kịp sắp xếp.</li><li>Thách đấu chỉ là lời hẹn, không tự ghi điểm. Sau khi đánh xong, hãy nhập tỷ số ở tab <b>Kết quả</b> để đối thủ xác nhận.</li></ul>`],
-['Gợi ý trận đấu',`<p>Ở tab <b>Kết quả</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Thách đấu</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
+['Set kèo',`<ol><li>Vào tab <b>Kết quả</b>, mục <b>Set kèo mới</b>.</li><li>Chọn partner, hai người của đội đối thủ, thời gian và ghi rõ <b>kèo</b> (ví dụ: ăn sáng, ăn trưa).</li><li>Bấm <b>Gửi kèo</b>.</li></ol><p>Đội đối thủ sẽ thấy kèo ở đầu tab và bấm <b>Nhận lời</b> hoặc <b>Từ chối</b>. Người tạo có thể hủy khi cần. Kèo trong ngày hiện ở Hot news. Sau khi đánh xong, nhớ nhập kết quả ở tab <b>Kết quả</b>.</p>`],
+['Quy tắc set kèo',`<ul><li>Mỗi kèo cần đủ <b>4 người khác nhau</b>: bạn, partner và hai người của đội đối thủ.</li><li>Hai đội phải <b>cùng loại đôi</b>: Nam-Nam, Nam-Nữ hoặc Nữ-Nữ.</li><li>Thời gian phải ở <b>tương lai</b>.</li><li>Chỉ hai người của đội đối thủ mới trả lời được. Chỉ cần <b>một trong hai</b> nhận lời hoặc từ chối là có hiệu lực cho cả đội.</li><li>Trạng thái: <b>Chờ nhận lời</b>, sau đó là <b>Đã nhận lời</b>, <b>Đã từ chối</b> hoặc <b>Đã hủy</b>. Kèo bị từ chối không còn hiện trong danh sách.</li><li>Người tạo (hoặc admin) hủy được khi kèo đang chờ hoặc đã nhận lời. Nếu không đến được, hãy hủy sớm để đội kia kịp sắp xếp.</li><li>Kèo (ăn sáng, ăn trưa...) là thỏa thuận vui giữa hai đội, hệ thống chỉ ghi lại, không tự xử lý.</li><li>Set kèo chỉ là lời hẹn, không tự ghi điểm. Sau khi đánh xong, hãy nhập tỷ số ở tab <b>Kết quả</b> để đối thủ xác nhận.</li></ul>`],
+['Gợi ý trận đấu',`<p>Ở tab <b>Kết quả</b>, mục <b>Gợi ý trận cân tài cân sức</b> đưa ra 3 trận có điểm hai đội chênh nhau ít nhất. Bấm <b>Set kèo</b> bên cạnh gợi ý để điền sẵn vào form, rồi chọn thời gian và gửi.</p>`],
 ['Trang Của tôi',`<ul><li>Thứ hạng và điểm hiện tại của bạn.</li><li>Số trận đã đánh trong tháng, kèm tỷ số từng trận.</li><li>Bảng xếp hạng đầy đủ của nhóm cùng giới với bạn, tên bạn được tô nổi.</li><li>Mục <b>Đổi mật khẩu</b> và nút <b>Đăng xuất</b> ở cuối trang.</li></ul>`],
 ['Ảnh đại diện',`<ol><li>Vào tab <b>Của tôi</b>.</li><li>Bấm <b>Đổi ảnh đại diện</b> và chọn một ảnh từ điện thoại.</li><li>Kéo ảnh để căn mặt vào giữa khung tròn, kéo thanh để phóng to, rồi bấm <b>Lưu ảnh</b>.</li><li>Ảnh hiển thị hình tròn cạnh tên bạn trong các bảng xếp hạng và danh sách thành viên.</li></ol><p>Nếu chưa có ảnh, hệ thống hiện chữ cái đầu tên của bạn.</p>`],
 ['Quên mật khẩu',`<ol><li>Ở trang đăng nhập, nhập email của bạn vào ô Email.</li><li>Bấm <b>Quên mật khẩu?</b>.</li><li>Mở email nhận được, bấm vào đường dẫn và nhập mật khẩu mới.</li></ol><p>Nếu không thấy email, hãy kiểm tra thư mục Spam hoặc chờ vài phút.</p>`],
@@ -278,7 +280,7 @@ function tourView(){
   return `<h2 style="margin-top:0">Danh sách giải</h2>${T.map(tCard).join('')||'<div class="card mu">Chưa có giải nào.</div>'}${form}`;
 }
 
-const TABS={news:['Hot news',news],submit:['Kết quả & thách đấu',submitView,'Kết quả'],tour:['Giải đấu',tourView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
+const TABS={news:['Hot news',news],submit:['Kết quả & set kèo',submitView,'Kết quả'],tour:['Giải đấu',tourView],me:['Của tôi',meView],members:['Thành viên',members],guide:['Hướng dẫn sử dụng',guideView,'Hướng dẫn']};
 function render(){
   if(!session)return authView();
   if(!me){$('#root').innerHTML='<div style="padding:20px"><p>Đang tải hồ sơ…</p><p class="mu">Nếu chờ quá lâu, tài khoản này chưa có hồ sơ. Hãy đăng xuất, xóa tài khoản trong Supabase rồi đăng ký lại.</p><button class="pri" id="out">Đăng xuất</button></div>';$('#out').onclick=()=>sb.auth.signOut();return}
@@ -291,14 +293,14 @@ function render(){
   document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{const v=prompt('Tỷ số mới (đội A-đội B), ví dụ 11-8');const r=v&&v.match(/^(\d+)\D+(\d+)$/);r?rpc('admin_set_result',{p_id:b.dataset.set,p_sa:+r[1],p_sb:+r[2]}):0});
   document.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>rpc('respond_challenge',{p_id:b.dataset.acc,p_accept:true}));
   document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>rpc('respond_challenge',{p_id:b.dataset.dec,p_accept:false}));
-  document.querySelectorAll('[data-cxc]').forEach(b=>b.onclick=()=>confirm('Hủy thách đấu này?')&&rpc('cancel_challenge',{p_id:b.dataset.cxc}));
+  document.querySelectorAll('[data-cxc]').forEach(b=>b.onclick=()=>confirm('Hủy kèo này?')&&rpc('cancel_challenge',{p_id:b.dataset.cxc}));
   document.querySelectorAll('[data-sug]').forEach(b=>b.onclick=()=>{const[a,x,y]=b.dataset.sug.split(',');const f=$('#cf');f.a2.value=a;f.b1.value=x;f.b2.value=y;f.scrollIntoView({behavior:'smooth'})});
   if($('#cf'))$('#cf').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),ids=[me.id,f.a2,f.b1,f.b2];
     if(new Set(ids).size<4)return alert('Cần 4 người chơi khác nhau.');
     if(teamTy(me.id,f.a2)!==teamTy(f.b1,f.b2))return alert('Hai đội phải cùng loại đôi (Nam-Nam, Nam-Nữ hoặc Nữ-Nữ).');
     if(new Date(f.t)<new Date())return alert('Hãy chọn thời gian trong tương lai.');
-    const{error}=await sb.from('challenges').insert({created_by:me.id,a1:me.id,a2:f.a2,b1:f.b1,b2:f.b2,play_at:new Date(f.t).toISOString()});
-    if(error)return alert(error.message);alert('Đã gửi thách đấu.');await load();render()};
+    const{error}=await sb.from('challenges').insert({created_by:me.id,a1:me.id,a2:f.a2,b1:f.b1,b2:f.b2,play_at:new Date(f.t).toISOString(),bet:(f.bet||'').trim()||null});
+    if(error)return alert(error.message);alert('Đã gửi kèo.');await load();render()};
   document.querySelectorAll('.gh').forEach(b=>b.onclick=()=>{const was=b.getAttribute('aria-expanded')==='true';document.querySelectorAll('.gh').forEach(x=>{x.setAttribute('aria-expanded','false');x.nextElementSibling.classList.remove('open')});if(!was){b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}});
   if($('#avf'))$('#avf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
     try{const blob=await cropAvatar(f);e.target.value='';if(!blob)return;const path=me.id+'/avatar.jpg';
